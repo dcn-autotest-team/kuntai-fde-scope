@@ -103,6 +103,30 @@ button { font: inherit; }
   font-weight: 500;
 }
 
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+.nav-toggle span {
+  display: block;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
 .nav-links a,
 .admin-entry {
   position: relative;
@@ -538,8 +562,8 @@ body.modal-open {
   font-size: 14px;
 }
 .admin-login-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 .admin-login-form input {
@@ -667,37 +691,6 @@ body.modal-open {
 .case-panel p { margin: 0 0 10px; color: var(--muted); }
 .case-panel strong { display: block; margin-top: 16px; }
 
-.handoff-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.handoff-step {
-  padding: 24px;
-}
-
-.handoff-step span {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  margin-bottom: 16px;
-  border-radius: 4px;
-  color: var(--muted);
-  background: var(--section);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.handoff-step.active span {
-  color: #fff;
-  background: var(--brand);
-}
-
-.handoff-step h3 { margin: 0 0 8px; font-size: 17px; }
-.handoff-step p { margin: 0; color: var(--muted); font-size: 14px; }
-
 .site-footer {
   padding: 32px 0;
   background: #1a1a2e;
@@ -711,7 +704,6 @@ body.modal-open {
   .hero-inner,
   .checker-layout,
   .scope-grid,
-  .handoff-grid,
   .admin-layout,
   .admin-login {
     grid-template-columns: 1fr;
@@ -719,8 +711,26 @@ body.modal-open {
   .hero-inner { min-height: auto; padding: 52px 0; }
   .hero-stats { grid-template-columns: repeat(3, 1fr); }
   .result-card { position: static; }
-  .nav-links { gap: 16px; }
-  .nav-links a { display: none; }
+  .nav-toggle { display: flex; }
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    z-index: 40;
+  }
+  .nav-links.is-open { display: flex; }
+  .nav-links a,
+  .admin-entry { padding: 14px 24px; }
+  .nav-links a::after,
+  .admin-entry::after { display: none; }
+  .topbar { position: relative; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stats-grid div:nth-child(2) { border-right: 0; }
 }

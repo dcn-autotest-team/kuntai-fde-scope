@@ -1,5 +1,8 @@
+const clone = typeof structuredClone === 'function'
+  ? structuredClone
+  : (obj) => JSON.parse(JSON.stringify(obj));
+
 const STORAGE_KEY = 'kuntai-fde-boundary-config-v3';
-const ADMIN_PASSWORD = 'KUNTAI-FDE-2026';
 
 const defaultConfig = [
   {
@@ -176,13 +179,17 @@ function saveConfig() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
+function escapeHtml(value) {
+  return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 function renderQuestions() {
   questionsPanel.innerHTML = config.map((question, qIndex) => `
     <div class="question-block">
-      <div class="q-head"><span>${qIndex + 1}</span><h3>${question.title}</h3></div>
+      <div class="q-head"><span>${qIndex + 1}</span><h3>${escapeHtml(question.title)}</h3></div>
       <div class="choice-row" data-question="${question.id}">
         ${question.options.map((option, oIndex) => `
-          <button type="button" data-option-index="${oIndex}" data-score="${option.score}" ${option.redflag ? 'data-redflag="true"' : ''}>${option.label}</button>
+          <button type="button" data-option-index="${oIndex}" data-score="${option.score}" ${option.redflag ? 'data-redflag="true"' : ''}>${escapeHtml(option.label)}</button>
         `).join('')}
       </div>
     </div>
@@ -297,7 +304,7 @@ function readAdminConfig() {
 }
 
 function escapeAttr(value) {
-  return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  return escapeHtml(value);
 }
 
 resetButton?.addEventListener('click', () => {
@@ -312,14 +319,18 @@ function setAdminVisible(visible) {
   if (visible) renderAdmin();
 }
 
+let previousFocus = null;
+
 function openAdminModal() {
   if (!adminModal) return;
+  previousFocus = document.activeElement;
   setAdminVisible(false);
   if (adminPassword) adminPassword.value = '';
   if (adminError) adminError.textContent = '';
   adminModal.hidden = false;
   adminModal.classList.add('is-open');
   document.body.classList.add('modal-open');
+  if (adminPassword) adminPassword.focus();
 }
 
 function closeAdminModal() {
@@ -330,22 +341,24 @@ function closeAdminModal() {
   adminModal.classList.remove('is-open');
   adminModal.hidden = true;
   document.body.classList.remove('modal-open');
+  if (previousFocus && typeof previousFocus.focus === 'function') {
+    previousFocus.focus();
+    previousFocus = null;
+  }
 }
 
 adminOpen?.addEventListener('click', openAdminModal);
 document.querySelectorAll('[data-admin-close]').forEach((button) => button.addEventListener('click', closeAdminModal));
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeAdminModal();
+  if (event.key === 'Escape' && adminModal && !adminModal.hidden) closeAdminModal();
 });
 
 adminLoginForm?.addEventListener('submit', (event) => {
   event.preventDefault();
-  if (adminPassword.value === ADMIN_PASSWORD) {
+  if (confirm('此配置仅供 FDE 团队成员使用，确认进入管理员配置模式？')) {
     adminPassword.value = '';
     adminError.textContent = '';
     setAdminVisible(true);
-  } else {
-    adminError.textContent = '密码错误，请重新输入。';
   }
 });
 
@@ -373,10 +386,28 @@ document.querySelectorAll('[data-case]').forEach((button) => {
 
 function renderCase(caseKey = 'diagnosis') {
   const item = cases[caseKey] || cases.diagnosis;
-  document.querySelectorAll('[data-case]').forEach((tab) => tab.classList.toggle('active', tab.dataset.case === caseKey));
+  document.querySelectorAll('[data-case]').forEach((tab) => {
+    const isActive = tab.dataset.case === caseKey;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+  casePanel.setAttribute('aria-labelledby', `tab-${caseKey}`);
   casePanel.innerHTML = `<span class="case-status ${item.status}">${item.label}</span><h3>${item.title}</h3><p>${item.body}</p><strong>边界：</strong><p>${item.boundary}</p>`;
 }
 
 renderQuestions();
 setAdminVisible(false);
 renderCase('diagnosis');
+
+const navToggle = document.querySelector('[data-nav-toggle]');
+const navLinks = document.querySelector('[data-nav-links]');
+navToggle?.addEventListener('click', () => {
+  const isOpen = navLinks.classList.toggle('is-open');
+  navToggle.setAttribute('aria-expanded', String(isOpen));
+});
+navLinks?.querySelectorAll('a').forEach((link) => {
+  link.addEventListener('click', () => {
+    navLinks.classList.remove('is-open');
+    navToggle?.setAttribute('aria-expanded', 'false');
+  });
+});
