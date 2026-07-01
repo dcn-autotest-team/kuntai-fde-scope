@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>神州鲲泰 FDE 团队能力边界说明</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <nav class="topbar shell" aria-label="主导航">
+      <a class="brand" href="#top" aria-label="神州鲲泰 FDE 团队能力边界说明">
+        <span class="logo-mark">K</span>
+        <span class="logo-text"><strong>KUNTAI 神州鲲泰</strong><em>FDE 团队能力边界说明</em></span>
+      </a>
+      <div class="nav-links">
+        <a href="#decision">边界判定</a>
+        <a href="#scope">能力范围</a>
+        <a href="#packages">服务包</a>
+        <button class="admin-entry" type="button" data-admin-open>管理员配置</button>
+      </div>
+    </nav>
+  </header>
+
+  <section id="top" class="hero">
+    <div class="hero-inner shell">
+      <div class="hero-content">
+        <p class="eyebrow">KUNTAI Forward Deployed Engineering</p>
+        <h1>神州鲲泰 FDE 团队<br/>AI 应用落地能力边界</h1>
+        <p class="hero-desc">神州鲲泰 FDE 定位为连接客户业务、IT 环境与 AI 应用能力的前线工程小队。团队聚焦场景诊断、RAG/Agent 原型、测试评估、推理部署验证和试点上线支持，帮助客户以小步快跑方式验证效果、沉淀方法、推动 AI 应用落地。</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#decision">立即判定需求</a>
+          <a class="btn outline" href="#scope">查看能力范围</a>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div><strong data-stat-questions>6</strong><span>判定维度</span></div>
+        <div><strong>6</strong><span>推荐服务包</span></div>
+        <div><strong>0</strong><span>红线妥协</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-bar">
+    <div class="shell stats-grid">
+      <div><strong>场景诊断</strong><span>需求拆解与 MVP 路线</span></div>
+      <div><strong>RAG / Agent</strong><span>原型、评测与试点</span></div>
+      <div><strong>部署验证</strong><span>推理环境与客户接入</span></div>
+      <div><strong>边界清晰</strong><span>不做总包、托管或底层研发</span></div>
+    </div>
+  </section>
+
+  <main>
+    <section id="decision" class="section">
+      <div class="shell">
+        <div class="section-header">
+          <h2>需求边界判定器</h2>
+          <p>围绕场景价值、AI 应用形态、测试评估、部署环境、客户协作和风险边界进行判断。</p>
+        </div>
+        <div class="checker-layout">
+          <div class="questions-panel" data-questions-panel></div>
+          <aside class="result-card" data-result-card>
+            <span class="result-label" data-result-label>等待选择</span>
+            <h3 data-result-title>请选择左侧选项</h3>
+            <p data-result-text>完成所有问题后，这里会显示需求是否属于 FDE 团队能力边界，以及下一步建议。</p>
+            <div class="scorebar"><span data-scorebar></span></div>
+            <ul data-result-list>
+              <li>优先判断是否属于 AI 应用落地、PoC/MVP、测试评估或部署协同范围。</li>
+            </ul>
+            <button class="btn reset" type="button" data-reset>重置选择</button>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="scope" class="section scope-section">
+      <div class="shell">
+        <div class="section-header">
+          <h2>FDE 的能力范围</h2>
+          <p>团队优势不是纯咨询、底层模型研发或长期托管，而是把客户业务、IT 环境和 AI 应用能力连接起来。</p>
+        </div>
+        <div class="scope-grid">
+          <article class="scope-col can">
+            <span>可以独立推进</span>
+            <h3>AI 应用从 0 到 1 落地</h3>
+            <ul><li>AI 场景诊断、需求拆解、MVP 路线图</li><li>RAG / 企业知识库 / 智能问答 PoC</li><li>Agent / 工作流自动化半自动原型</li><li>测试用例、Badcase 分析、模型与接口评测</li><li>私有化推理部署验证、GPU/服务器测试</li><li>客户环境接入、连通性排查与部署协同</li></ul>
+          </article>
+          <article class="scope-col caution">
+            <span>需要外部支持</span>
+            <h3>可参与但不宜独立兜底</h3>
+            <ul><li>生产级 AI 平台架构与复杂权限体系</li><li>高并发、多租户、灾备、审计与计费体系</li><li>复杂企业系统深度集成</li><li>垂直行业深水区高风险业务判断</li><li>生产环境可观测性与 7x24 SLA 体系</li><li>大规模模型网关或集群调度平台建设</li></ul>
+          </article>
+          <article class="scope-col reject">
+            <span>不适合承接</span>
+            <h3>触发红线应转交或拒绝</h3>
+            <ul><li>端到端负责客户 AI 转型成败</li><li>无人审核的自动决策系统</li><li>生产环境 7x24 运维 SLA</li><li>大型核心网络或核心系统改造总包</li><li>纯战略咨询，只出报告不落地</li><li>从零训练大模型、基座模型研发、千卡级训练</li></ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="packages" class="section">
+      <div class="shell">
+        <div class="section-header">
+          <h2>推荐 FDE 服务包</h2>
+          <p>以下服务包适合对外说明交付范围，也便于售前、交付和客户共同确认边界。</p>
+        </div>
+        <div class="scope-grid">
+          <article class="scope-col can"><span>3-5 天</span><h3>AI 场景诊断工作坊</h3><ul><li>业务访谈与场景清单</li><li>优先级矩阵与技术可行性判断</li><li>ROI 假设与 MVP 路线图</li></ul></article>
+          <article class="scope-col can"><span>1-3 周</span><h3>RAG / 知识库 PoC</h3><ul><li>文档清洗与入库</li><li>检索链路与问答 Demo</li><li>评测集、Badcase 报告与迭代建议</li></ul></article>
+          <article class="scope-col caution"><span>2-4 周</span><h3>Agent / 流程自动化 MVP</h3><ul><li>目标流程拆解</li><li>半自动工作流 Demo</li><li>人工审核节点与上线风险清单</li></ul></article>
+          <article class="scope-col can"><span>1-2 周</span><h3>AI 应用测试评估</h3><ul><li>测试用例与验收标准</li><li>模型对比、性能报告</li><li>Badcase 分类与上线建议</li></ul></article>
+          <article class="scope-col caution"><span>1-3 周</span><h3>私有化推理部署验证</h3><ul><li>环境检查与模型服务部署</li><li>GPU / 服务器测试</li><li>推理性能报告与部署 checklist</li></ul></article>
+          <article class="scope-col caution"><span>视环境而定</span><h3>客户环境接入与部署协同</h3><ul><li>部署环境调研</li><li>系统连通性确认</li><li>与客户 IT 协同排障和上线前检查</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="examples" class="section examples-section">
+      <div class="shell">
+        <div class="section-header">
+          <h2>典型场景判定</h2>
+          <p>点击场景，查看 FDE 应该如何处理边界。</p>
+        </div>
+        <div class="example-tabs" role="tablist">
+          <button class="active" type="button" data-case="diagnosis">场景诊断</button>
+          <button type="button" data-case="rag">知识库 PoC</button>
+          <button type="button" data-case="agent">Agent MVP</button>
+          <button type="button" data-case="evaluation">测试评估</button>
+          <button type="button" data-case="deployment">推理部署验证</button>
+          <button type="button" data-case="environment">环境接入协同</button>
+          <button type="button" data-case="platform">生产级平台</button>
+          <button type="button" data-case="core_integration">核心系统改造</button>
+          <button type="button" data-case="high_risk">高风险自动决策</button>
+          <button type="button" data-case="sla">7x24 运维 SLA</button>
+          <button type="button" data-case="model_training">大模型训练</button>
+        </div>
+        <article class="case-panel" data-case-panel></article>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner"><p>神州鲲泰 FDE 团队能力边界说明 · 用于对齐客户、销售、产品、工程和交付团队。</p></div>
+  </footer>
+
+  <div class="admin-modal" data-admin-modal hidden>
+    <div class="admin-backdrop" data-admin-close></div>
+    <aside class="admin-drawer" aria-label="管理员配置面板">
+      <div class="admin-drawer-head"><div><h2>管理员配置</h2><p>输入管理员密码后，查看并编辑需求边界判定器。</p></div><button class="admin-close" type="button" data-admin-close aria-label="关闭管理员配置">×</button></div>
+      <div class="admin-login" data-admin-login><div><h3>管理员登录</h3><p>用于维护判定问题、选项、分值和红线标记。配置保存到本地浏览器。</p></div><form class="admin-login-form" data-admin-login-form><input type="password" data-admin-password placeholder="请输入管理员密码" autocomplete="current-password" /><button class="btn primary" type="submit">进入配置</button></form><p class="admin-error" data-admin-error role="alert"></p></div>
+      <div class="admin-private" data-admin-private hidden><div class="admin-toolbar"><span>已进入管理员配置模式</span><button class="btn light" type="button" data-admin-logout>退出后台</button></div><div class="admin-layout"><div class="admin-panel" data-admin-panel></div><aside class="admin-help"><h3>配置说明</h3><ul><li>分值越高，越倾向“可以做”。</li><li>负分越低，越倾向“谨慎做 / 不能做”。</li><li>勾选红线后，只要该选项被选中，结论优先判为“不能做”。</li><li>修改后点击“保存配置”，判定器会立即更新。</li></ul><div class="admin-actions"><button class="btn primary" type="button" data-admin-save>保存配置</button><button class="btn light" type="button" data-admin-reset>恢复默认</button></div></aside></div></div>
+    </aside>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
