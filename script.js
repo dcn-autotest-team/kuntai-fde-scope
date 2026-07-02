@@ -144,6 +144,44 @@ const cases = {
 let config = loadConfig();
 const answers = new Map();
 
+// ── 服务包数据 ──────────────────────────────────────────────────────────────
+const packages = {
+  diagnosis: { title: 'AI 场景诊断工作坊', duration: '3-5 天', status: 'can' },
+  rag:       { title: 'RAG / 知识库 PoC',     duration: '1-3 周', status: 'can' },
+  agent:     { title: 'Agent / 流程自动化 MVP',  duration: '2-4 周', status: 'caution' },
+  evaluation:{ title: 'AI 应用测试评估',   duration: '1-2 周', status: 'can' },
+  deployment:{ title: '私有化推理部署验证', duration: '1-3 周', status: 'caution' },
+  environment:{ title: '客户环境接入与部署协同', duration: '视环境而定', status: 'caution' }
+};
+
+// 判定结果 -> 服务包映射逻辑
+function getRecommendedPackages() {
+  const techAnswer = answers.get('tech_scope');
+  const solutionAnswer = answers.get('solution_type');
+  const ids = new Set();
+
+  // tech_scope: 0=高度匹配, 1=部分匹配, 2=偏底层(不推荐)
+  if (techAnswer?.optionIndex === 0) {
+    ids.add('diagnosis');
+    // solution_type: 0=适合PoC, 1=范围需收敛, 2=生产级总包
+    if (solutionAnswer?.optionIndex === 0) {
+      ids.add('rag'); ids.add('agent'); ids.add('evaluation');
+    }
+  }
+  if (techAnswer?.optionIndex === 1) {
+    ids.add('deployment'); ids.add('environment');
+  }
+
+  // value(AI应用落地) 选项补充
+  const valueAnswer = answers.get('value');
+  if (valueAnswer?.optionIndex === 0) ids.add('diagnosis');
+
+  // 默认至少给一个
+  if (ids.size === 0) ids.add('diagnosis');
+
+  return [...ids].slice(0, 3).map(id => packages[id]).filter(Boolean);
+}
+
 const questionsPanel = document.querySelector('[data-questions-panel]');
 const resultCard = document.querySelector('[data-result-card]');
 const resultLabel = document.querySelector('[data-result-label]');
@@ -256,6 +294,7 @@ function renderResult() {
     resultText.textContent = '不建议由 FDE 小队独立承接。应转交或引入架构、SRE、客户 IT、合规、行业专家或底层研发团队。';
     resultList.innerHTML = '<li>不要独立承诺生产级平台、核心系统改造或 7x24 SLA。</li><li>不要承接无人审核的高风险自动决策。</li><li>不要把 FDE 定位为大模型底层研发、纯咨询或长期运维托管团队。</li>';
     scorebar.style.background = 'var(--red)';
+    renderRecommendedPackages('no');
   } else if (total >= 8) {
     resultCard.classList.add('can');
     resultLabel.textContent = '可以做';
@@ -263,6 +302,7 @@ function renderResult() {
     resultText.textContent = '可以进入场景诊断、PoC/MVP、测试评估、推理部署验证或客户环境接入协同阶段。';
     resultList.innerHTML = '<li>明确业务场景、技术可行性和 MVP 路线图。</li><li>用 RAG、Agent、测试评估或部署验证形成可验收结果。</li><li>沉淀评测报告、部署 checklist、风险清单和后续迭代建议。</li>';
     scorebar.style.background = 'var(--green)';
+    renderRecommendedPackages('can');
   } else {
     resultCard.classList.add('maybe');
     resultLabel.textContent = '需要外部支持';
@@ -270,12 +310,47 @@ function renderResult() {
     resultText.textContent = '建议先收敛为 PoC/MVP 或试点范围，并明确需要哪些外部角色配合。';
     resultList.innerHTML = '<li>拆分 FDE 能做的原型、评测、部署验证和协同排障部分。</li><li>生产级架构、复杂权限、核心系统改造和 SLA 需由专业团队负责。</li><li>在合同和验收口径中写清责任边界。</li>';
     scorebar.style.background = 'var(--amber)';
+    renderRecommendedPackages('maybe');
   }
+}
+
+const recommendedPackagesEl = document.querySelector('[data-recommended-packages]');
+
+function renderRecommendedPackages(verdict) {
+  if (!recommendedPackagesEl) return;
+  if (verdict === 'no') {
+    recommendedPackagesEl.hidden = false;
+    recommendedPackagesEl.innerHTML = '<p class="pkg-notice no">该需求已超出服务包范围，建议重新收敛需求或转交其他团队。</p>';
+    return;
+  }
+  const list = verdict === 'can' ? getRecommendedPackages() : [
+    packages.deployment, packages.environment
+  ].filter(Boolean);
+  if (!list.length) { recommendedPackagesEl.hidden = true; return; }
+  recommendedPackagesEl.hidden = false;
+  recommendedPackagesEl.innerHTML =
+    '<p class="pkg-label">推荐服务包</p>' +
+    list.map(pkg =>
+      `<a class="pkg-chip ${pkg.status}" href="#packages">
+        <span>${escapeHtml(pkg.duration)}</span>${escapeHtml(pkg.title)}
+      </a>`
+    ).join('');
 }
 
 function renderAdmin() {
   if (!adminPanel) return;
-  adminPanel.innerHTML = config.map((question, qIndex) => `
+  const aiCfg = loadAIConfig();
+  adminPanel.innerHTML = `
+    <section class="ai-config-section">
+      <h3>AI 智能判定配置</h3>
+      <p>配置 OpenAI 兼容 API，用于需求智能判定功能。</p>
+      <div class="ai-config-fields">
+        <label>API Endpoint<input data-ai-cfg-endpoint value="${escapeAttr(aiCfg.endpoint)}" placeholder="https://api.openai.com" /></label>
+        <label>API Key<input data-ai-cfg-key type="password" value="${escapeAttr(aiCfg.apiKey)}" placeholder="sk-..." /></label>
+        <label>Model<input data-ai-cfg-model value="${escapeAttr(aiCfg.model)}" placeholder="gpt-4o-mini" /></label>
+      </div>
+    </section>
+  ` + config.map((question, qIndex) => `
     <article class="admin-question" data-admin-question="${qIndex}">
       <label>问题 ${qIndex + 1}<input value="${escapeAttr(question.title)}" data-admin-title /></label>
       <div class="admin-options">
@@ -309,6 +384,7 @@ function escapeAttr(value) {
 
 resetButton?.addEventListener('click', () => {
   answers.clear();
+  if (recommendedPackagesEl) recommendedPackagesEl.hidden = true;
   restoreSelectedButtons();
   renderResult();
 });
@@ -353,12 +429,30 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && adminModal && !adminModal.hidden) closeAdminModal();
 });
 
-adminLoginForm?.addEventListener('submit', (event) => {
+// 管理员密码哈希 (SHA-256)，明文不存储在源码中
+const ADMIN_PWD_HASH = 'c638bc74f30482cae5ec685f12c435196bca31a591b6943157e6f38c973ad467';
+
+async function hashPassword(password) {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+adminLoginForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (confirm('此配置仅供 FDE 团队成员使用，确认进入管理员配置模式？')) {
+  const pwd = adminPassword.value;
+  if (!pwd) {
+    if (adminError) adminError.textContent = '请输入密码';
+    return;
+  }
+  const hash = await hashPassword(pwd);
+  if (hash === ADMIN_PWD_HASH) {
     adminPassword.value = '';
-    adminError.textContent = '';
+    if (adminError) adminError.textContent = '';
     setAdminVisible(true);
+  } else {
+    if (adminError) adminError.textContent = '密码错误，请重试';
+    adminPassword.value = '';
   }
 });
 
@@ -367,17 +461,28 @@ adminLogout?.addEventListener('click', () => setAdminVisible(false));
 adminSave?.addEventListener('click', () => {
   config = readAdminConfig();
   saveConfig();
+  // Save AI config
+  const aiCfgNew = {
+    endpoint: (adminPanel.querySelector('[data-ai-cfg-endpoint]')?.value || '').trim() || defaultAIConfig.endpoint,
+    apiKey: (adminPanel.querySelector('[data-ai-cfg-key]')?.value || '').trim(),
+    model: (adminPanel.querySelector('[data-ai-cfg-model]')?.value || '').trim() || defaultAIConfig.model
+  };
+  saveAIConfig(aiCfgNew);
   answers.clear();
   renderQuestions();
   renderAdmin();
+  checkAIConfig();
+  showToast('配置已保存', 'success');
 });
 
 adminReset?.addEventListener('click', () => {
   config = structuredClone(defaultConfig);
   saveConfig();
+  saveAIConfig(defaultAIConfig);
   answers.clear();
   renderQuestions();
   renderAdmin();
+  showToast('已恢复默认配置', 'info');
 });
 
 document.querySelectorAll('[data-case]').forEach((button) => {
@@ -410,4 +515,217 @@ navLinks?.querySelectorAll('a').forEach((link) => {
     navLinks.classList.remove('is-open');
     navToggle?.setAttribute('aria-expanded', 'false');
   });
+});
+
+// ── Toast 反馈提示 ──────────────────────────────────────────────────────────────
+const toastEl = document.querySelector('[data-toast]');
+let toastTimer = null;
+
+function showToast(msg, type) {
+  if (!toastEl) return;
+  clearTimeout(toastTimer);
+  toastEl.textContent = msg;
+  toastEl.className = 'toast is-visible' + (type ? ' is-' + type : '');
+  toastEl.hidden = false;
+  toastTimer = setTimeout(() => {
+    toastEl.className = 'toast';
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 300);
+  }, 2000);
+}
+
+// ── AI 智能判定 ────────────────────────────────────────────────────────────────
+const AI_STORAGE_KEY = 'kuntai-fde-ai-config';
+
+const defaultAIConfig = {
+  endpoint: 'https://api.openai.com',
+  apiKey: '',
+  model: 'gpt-4o-mini'
+};
+
+function loadAIConfig() {
+  try {
+    const saved = localStorage.getItem(AI_STORAGE_KEY);
+    return saved ? { ...defaultAIConfig, ...JSON.parse(saved) } : { ...defaultAIConfig };
+  } catch {
+    return { ...defaultAIConfig };
+  }
+}
+
+function saveAIConfig(cfg) {
+  localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(cfg));
+}
+
+const aiInput = document.querySelector('[data-ai-input]');
+const aiSubmit = document.querySelector('[data-ai-submit]');
+const aiStatus = document.querySelector('[data-ai-status]');
+const aiNotice = document.querySelector('[data-ai-notice]');
+
+function checkAIConfig() {
+  if (!aiNotice) return;
+  const cfg = loadAIConfig();
+  aiNotice.hidden = !!(cfg.apiKey && cfg.apiKey.trim());
+}
+checkAIConfig(); // 初始化时检查 API Key 状态
+const aiSummary = document.querySelector('[data-ai-summary]');
+const aiSummaryContent = document.querySelector('[data-ai-summary-content]');
+
+function showAIStatus(msg, type) {
+  if (!aiStatus) return;
+  aiStatus.hidden = false;
+  aiStatus.className = 'ai-status' + (type === 'error' ? ' is-error' : ' is-loading');
+  aiStatus.textContent = msg;
+}
+
+function hideAIStatus() {
+  if (!aiStatus) return;
+  aiStatus.hidden = true;
+  aiStatus.className = 'ai-status';
+  aiStatus.textContent = '';
+}
+
+function buildAIPrompt(userText) {
+  const dimensions = config.map((q, i) =>
+    `${i + 1}. ${q.title}\n   选项：${q.options.map((o, j) => `[${j}] ${o.label}（分值 ${o.score}${o.redflag ? '，红线' : ''}）`).join(' | ')}`
+  ).join('\n');
+
+  return `你是一个专业的需求分析助手。用户将描述一个客户需求，你需要根据以下 ${config.length} 个判定维度分析该需求，并为每个维度选择最合适的选项。
+
+## 判定维度与选项
+${dimensions}
+
+## 用户描述
+${userText}
+
+## 输出要求
+请严格按照以下 JSON 格式输出，不要输出其他内容：
+{
+  "decisions": [
+    { "dimension_id": "维度id", "option_index": 选项序号（从0开始）, "reason": "简短理由" }
+  ],
+  "summary": "整体分析摘要（一两句话）"
+}
+
+注意：
+- 每个维度必须选择一个选项
+- option_index 对应选项序号（从 0 开始）
+- 如果需求触发任何红线选项，请如实标记
+- summary 用中文简要说明分析结论`;
+}
+
+async function analyzeWithAI(text) {
+  const aiCfg = loadAIConfig();
+  if (!aiCfg.apiKey) {
+    showAIStatus('请先在「管理员配置」中设置 AI API Key。', 'error');
+    return;
+  }
+
+  const prompt = buildAIPrompt(text);
+  showAIStatus('AI 正在分析需求，请稍候…', 'loading');
+  if (aiSummary) aiSummary.hidden = true;
+  if (aiSubmit) aiSubmit.disabled = true;
+
+  try {
+    const url = aiCfg.endpoint.replace(/\/+$/, '') + '/v1/chat/completions';
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + aiCfg.apiKey
+      },
+      body: JSON.stringify({
+        model: aiCfg.model,
+        messages: [
+          { role: 'system', content: '你是一个严格按要求输出 JSON 的分析助手，不要输出任何非 JSON 内容。' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 1500
+      })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error('API 请求失败 (' + resp.status + '): ' + (errText.slice(0, 200) || resp.statusText));
+    }
+
+    const data = await resp.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('API 返回内容为空');
+
+    // Extract JSON from response (handle markdown code blocks)
+    let jsonStr = content.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) jsonStr = jsonMatch[1].trim();
+
+    const parsed = JSON.parse(jsonStr);
+    applyAIResult(parsed);
+  } catch (err) {
+    showAIStatus('分析失败: ' + err.message, 'error');
+  } finally {
+    if (aiSubmit) aiSubmit.disabled = false;
+  }
+}
+
+function applyAIResult(result) {
+  const decisions = result?.decisions;
+  if (!Array.isArray(decisions) || !decisions.length) {
+    showAIStatus('AI 返回格式异常，无法自动填充判定。', 'error');
+    return;
+  }
+
+  // Clear previous answers
+  answers.clear();
+
+  const appliedIds = [];
+  for (const decision of decisions) {
+    const question = config.find(q => q.id === decision.dimension_id);
+    if (!question) continue;
+    const optIdx = Number(decision.option_index);
+    const option = question.options[optIdx];
+    if (!option) continue;
+    answers.set(question.id, {
+      score: Number(option.score),
+      redflag: Boolean(option.redflag),
+      optionIndex: optIdx
+    });
+    appliedIds.push(question.id);
+  }
+
+  restoreSelectedButtons();
+  renderResult();
+
+  // Show summary
+  hideAIStatus();
+  if (aiSummary && aiSummaryContent) {
+    const summaryText = result?.summary || '分析完成';
+    const items = decisions
+      .filter(d => {
+        const q = config.find(q2 => q2.id === d.dimension_id);
+        return q && q.options[Number(d.option_index)];
+      })
+      .map(d => {
+        const q = config.find(q2 => q2.id === d.dimension_id);
+        const opt = q.options[Number(d.option_index)];
+        return '<li><strong>' + escapeHtml(q.title) + '</strong> → ' + escapeHtml(opt.label) + '（' + escapeHtml(d.reason || '') + '）</li>';
+      });
+    aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(summaryText) + '</p><ul>' + items.join('') + '</ul>';
+    aiSummary.hidden = false;
+  }
+}
+
+aiSubmit?.addEventListener('click', () => {
+  const text = (aiInput?.value || '').trim();
+  if (!text) {
+    showAIStatus('请先输入需求描述。', 'error');
+    return;
+  }
+  analyzeWithAI(text);
+});
+
+// Allow Ctrl+Enter to submit
+aiInput?.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    aiSubmit?.click();
+  }
 });

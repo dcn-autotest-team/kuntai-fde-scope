@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>神州鲲泰 FDE 团队能力边界说明</title>
   <link rel="stylesheet" href="styles.css" />
@@ -10,8 +11,8 @@
   <header class="site-header">
     <nav class="topbar shell" aria-label="主导航">
       <a class="brand" href="#top" aria-label="神州鲲泰 FDE 团队能力边界说明">
-        <span class="logo-mark">K</span>
-        <span class="logo-text"><strong>KUNTAI 神州鲲泰</strong><em>FDE 团队能力边界说明</em></span>
+        <img class="logo-mark" src="logo.png" alt="神州鲲泰" />
+        <span class="logo-text"><em>FDE 团队能力边界说明</em></span>
       </a>
       <button class="nav-toggle" type="button" aria-label="打开导航菜单" aria-expanded="false" data-nav-toggle>
         <span></span><span></span><span></span>
@@ -38,18 +39,18 @@
       </div>
       <div class="hero-stats">
         <div><strong data-stat-questions>6</strong><span>判定维度</span></div>
-        <div><strong>6</strong><span>推荐服务包</span></div>
-        <div><strong>0</strong><span>红线妥协</span></div>
+        <div><strong>5 分钟</strong><span>快速判定需求边界</span></div>
+        <div><strong>6 项</strong><span>明确红线场景</span></div>
       </div>
     </div>
   </section>
 
   <section class="stats-bar">
     <div class="shell stats-grid">
-      <div><strong>场景诊断</strong><span>需求拆解与 MVP 路线</span></div>
-      <div><strong>RAG / Agent</strong><span>原型、评测与试点</span></div>
-      <div><strong>部署验证</strong><span>推理环境与客户接入</span></div>
-      <div><strong>边界清晰</strong><span>不做总包、托管或底层研发</span></div>
+      <div><strong>前线工程小队</strong><span>直接嵌入客户场景，快速响应</span></div>
+      <div><strong>PoC → 试点</strong><span>小步快跑，验证效果再扩展</span></div>
+      <div><strong>可验收交付</strong><span>报告、Demo、部署 checklist</span></div>
+      <div><strong>清晰移交边界</strong><span>不做总包、不长期托管</span></div>
     </div>
   </section>
 
@@ -59,6 +60,25 @@
         <div class="section-header">
           <h2>需求边界判定器</h2>
           <p>围绕场景价值、AI 应用形态、测试评估、部署环境、客户协作和风险边界进行判断。</p>
+        </div>
+        <div class="ai-panel" data-ai-panel>
+          <div class="ai-panel-head">
+            <span class="ai-badge">AI</span>
+            <div><h3>AI 智能判定</h3><p>输入需求描述，AI 将自动分析并填充判定维度。</p></div>
+          </div>
+          <div class="ai-notice" data-ai-notice hidden>
+            <span>⚠️ AI 智能判定尚未配置 API Key，请先完成配置再使用。</span>
+            <button type="button" class="ai-notice-btn" data-admin-open>去配置</button>
+          </div>
+          <div class="ai-input-row">
+            <textarea data-ai-input rows="4" placeholder="请描述客户需求，例如：客户是一家制造企业，希望用 AI 做质检报告自动生成，已有 GPU 服务器，想先做一个 PoC 验证效果..."></textarea>
+            <button class="btn primary ai-submit" type="button" data-ai-submit>AI 智能判定</button>
+          </div>
+          <div class="ai-status" data-ai-status hidden></div>
+          <div class="ai-summary" data-ai-summary hidden>
+            <h4>AI 分析摘要</h4>
+            <div data-ai-summary-content></div>
+          </div>
         </div>
         <div class="checker-layout">
           <div class="questions-panel" data-questions-panel></div>
@@ -70,6 +90,7 @@
             <ul data-result-list>
               <li>优先判断是否属于 AI 应用落地、PoC/MVP、测试评估或部署协同范围。</li>
             </ul>
+            <div class="recommended-packages" data-recommended-packages hidden></div>
             <button class="btn reset" type="button" data-reset>重置选择</button>
           </aside>
         </div>
@@ -126,17 +147,26 @@
           <p>点击场景，查看 FDE 应该如何处理边界。</p>
         </div>
         <div class="example-tabs" role="tablist" aria-label="典型场景判定">
-          <button class="active" role="tab" aria-selected="true" aria-controls="case-panel" id="tab-diagnosis" type="button" data-case="diagnosis">场景诊断</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-rag" type="button" data-case="rag">知识库 PoC</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-agent" type="button" data-case="agent">Agent MVP</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-evaluation" type="button" data-case="evaluation">测试评估</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-deployment" type="button" data-case="deployment">推理部署验证</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-environment" type="button" data-case="environment">环境接入协同</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-platform" type="button" data-case="platform">生产级平台</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-core_integration" type="button" data-case="core_integration">核心系统改造</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-high_risk" type="button" data-case="high_risk">高风险自动决策</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-sla" type="button" data-case="sla">7x24 运维 SLA</button>
-          <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-model_training" type="button" data-case="model_training">大模型训练</button>
+          <div class="tab-group">
+            <span class="tab-group-label can">可以做</span>
+            <button class="active" role="tab" aria-selected="true" aria-controls="case-panel" id="tab-diagnosis" type="button" data-case="diagnosis">场景诊断</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-rag" type="button" data-case="rag">知识库 PoC</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-agent" type="button" data-case="agent">Agent MVP</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-evaluation" type="button" data-case="evaluation">测试评估</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-deployment" type="button" data-case="deployment">推理部署验证</button>
+          </div>
+          <div class="tab-group">
+            <span class="tab-group-label maybe">谨慎做</span>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-environment" type="button" data-case="environment">环境接入协同</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-platform" type="button" data-case="platform">生产级平台</button>
+          </div>
+          <div class="tab-group">
+            <span class="tab-group-label no">不能做</span>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-core_integration" type="button" data-case="core_integration">核心系统改造</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-high_risk" type="button" data-case="high_risk">高风险自动决策</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-sla" type="button" data-case="sla">7x24 运维 SLA</button>
+            <button role="tab" aria-selected="false" aria-controls="case-panel" id="tab-model_training" type="button" data-case="model_training">大模型训练</button>
+          </div>
         </div>
         <article class="case-panel" id="case-panel" role="tabpanel" aria-labelledby="tab-diagnosis" data-case-panel></article>
       </div>
@@ -145,17 +175,43 @@
   </main>
 
   <footer class="site-footer">
-    <div class="shell footer-inner"><p>神州鲲泰 FDE 团队能力边界说明 · 用于对齐客户、销售、产品、工程和交付团队。</p></div>
+    <div class="shell footer-inner">
+      <div class="footer-contact">
+        <div class="footer-contact-item">
+          <span class="footer-icon phone"></span>
+          <div>
+            <strong>客户服务热线</strong>
+            <span>7X24小时服务热线 400-810-9119</span>
+          </div>
+        </div>
+        <div class="footer-contact-item">
+          <span class="footer-icon location"></span>
+          <div>
+            <strong>公司地址</strong>
+            <span>北京市海淀区上地九街九号数码科技广场</span>
+          </div>
+        </div>
+        <div class="footer-contact-item">
+          <span class="footer-icon mail"></span>
+          <div>
+            <strong>E-mail</strong>
+            <span>kuntai_support@digitalchina.com</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </footer>
 
   <div class="admin-modal" data-admin-modal hidden>
     <div class="admin-backdrop" data-admin-close></div>
     <aside class="admin-drawer" role="dialog" aria-modal="true" aria-label="管理员配置面板">
       <div class="admin-drawer-head"><div><h2>管理员配置</h2><p>确认身份后，查看并编辑需求边界判定器。</p></div><button class="admin-close" type="button" data-admin-close aria-label="关闭管理员配置">×</button></div>
-      <div class="admin-login" data-admin-login><div><h3>管理员确认</h3><p>用于维护判定问题、选项、分值和红线标记。配置保存到本地浏览器。此配置仅供 FDE 团队成员使用。</p></div><form class="admin-login-form" data-admin-login-form><input type="hidden" data-admin-password /><button class="btn primary" type="submit">确认进入配置</button></form><p class="admin-error" data-admin-error role="alert"></p></div>
+      <div class="admin-login" data-admin-login><div><h3>管理员确认</h3><p>用于维护判定问题、选项、分值和红线标记。配置保存到本地浏览器。此配置仅供 FDE 团队成员使用。</p></div><form class="admin-login-form" data-admin-login-form><input type="password" data-admin-password placeholder="请输入管理员密码" autocomplete="off" /><button class="btn primary" type="submit">确认进入配置</button></form><p class="admin-error" data-admin-error role="alert"></p></div>
       <div class="admin-private" data-admin-private hidden><div class="admin-toolbar"><span>已进入管理员配置模式</span><button class="btn light" type="button" data-admin-logout>退出后台</button></div><div class="admin-layout"><div class="admin-panel" data-admin-panel></div><aside class="admin-help"><h3>配置说明</h3><ul><li>分值越高，越倾向“可以做”。</li><li>负分越低，越倾向“谨慎做 / 不能做”。</li><li>勾选红线后，只要该选项被选中，结论优先判为“不能做”。</li><li>修改后点击“保存配置”，判定器会立即更新。</li></ul><div class="admin-actions"><button class="btn primary" type="button" data-admin-save>保存配置</button><button class="btn light" type="button" data-admin-reset>恢复默认</button></div></aside></div></div>
     </aside>
   </div>
+
+  <div class="toast" data-toast hidden></div>
 
   <script src="script.js"></script>
 </body>
