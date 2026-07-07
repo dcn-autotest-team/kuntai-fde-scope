@@ -71,7 +71,28 @@
             <button type="button" class="ai-notice-btn" data-admin-open>去配置</button>
           </div>
           <div class="ai-input-row">
-            <textarea data-ai-input rows="4" placeholder="请描述客户需求，例如：客户是一家制造企业，希望用 AI 做质检报告自动生成，已有 GPU 服务器，想先做一个 PoC 验证效果..."></textarea>
+            <div class="ai-input-col">
+              <textarea data-ai-input rows="4" placeholder="请描述客户需求，例如：客户是一家制造企业，希望用 AI 做质检报告自动生成，已有 GPU 服务器，想先做一个 PoC 验证效果..."></textarea>
+              <div class="ai-upload-row">
+                <label class="ai-upload-btn" title="上传图片">
+                  <input type="file" data-ai-image accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+                  <span>📎 添加图片</span>
+                </label>
+                <label class="ai-upload-btn" title="上传文档">
+                  <input type="file" data-ai-document accept=".md,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,text/markdown" hidden />
+                  <span>📄 添加文档</span>
+                </label>
+                <span class="ai-upload-hint">支持 Markdown / PDF / Word，最多 1 个文档</span>
+              </div>
+              <div class="ai-image-preview" data-ai-image-preview hidden></div>
+              <div class="ai-doc-preview" data-ai-doc-preview hidden>
+                <div class="ai-doc-loading" data-ai-doc-loading hidden>
+                  <span class="ai-doc-spinner"></span>
+                  <span>正在解析文档…</span>
+                </div>
+                <div class="ai-doc-content" data-ai-doc-content hidden></div>
+              </div>
+            </div>
             <button class="btn primary ai-submit" type="button" data-ai-submit>AI 智能判定</button>
           </div>
           <div class="ai-status" data-ai-status hidden></div>
@@ -80,9 +101,10 @@
             <div data-ai-summary-content></div>
           </div>
         </div>
-        <div class="checker-layout">
-          <div class="questions-panel" data-questions-panel></div>
-          <aside class="result-card" data-result-card>
+        <div class="decision-stage" data-decision-stage hidden>
+          <div class="checker-layout">
+            <div class="questions-panel" data-questions-panel></div>
+            <aside class="result-card" data-result-card>
             <span class="result-label" data-result-label>等待选择</span>
             <h3 data-result-title>请选择左侧选项</h3>
             <p data-result-text>完成所有问题后，这里会显示需求是否属于 FDE 团队能力边界，以及下一步建议。</p>
@@ -91,8 +113,30 @@
               <li>优先判断是否属于 AI 应用落地、PoC/MVP、测试评估或部署协同范围。</li>
             </ul>
             <div class="recommended-packages" data-recommended-packages hidden></div>
+            <div class="project-generate" data-project-generate hidden>
+              <button class="btn primary project-generate-btn" type="button" data-project-generate-btn>
+                <span>🚀 生成交付项目页</span>
+              </button>
+              <p class="project-generate-hint">基于当前判定结果，自动生成一份可交付给客户的项目展示页。</p>
+            </div>
+            <div class="project-result" data-project-result hidden>
+              <div class="project-result-head">
+                <h4>交付项目页预览</h4>
+                <button type="button" class="project-close" data-project-close aria-label="关闭">×</button>
+              </div>
+              <div class="project-preview">
+                <iframe data-project-preview-frame sandbox="allow-scripts" title="交付项目页预览"></iframe>
+              </div>
+              <div class="project-actions">
+                <button class="btn primary" type="button" data-project-download>下载 .html</button>
+                <button class="btn light" type="button" data-project-copy>复制代码</button>
+                <button class="btn light" type="button" data-project-regenerate>重新生成</button>
+              </div>
+              <div class="project-status" data-project-status hidden></div>
+            </div>
             <button class="btn reset" type="button" data-reset>重置选择</button>
           </aside>
+        </div>
         </div>
       </div>
     </section>
@@ -213,6 +257,8 @@
 
   <div class="toast" data-toast hidden></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -184,12 +184,22 @@ function getRecommendedPackages() {
 
 const questionsPanel = document.querySelector('[data-questions-panel]');
 const resultCard = document.querySelector('[data-result-card]');
+const decisionStage = document.querySelector('[data-decision-stage]');
 const resultLabel = document.querySelector('[data-result-label]');
 const resultTitle = document.querySelector('[data-result-title]');
 const resultText = document.querySelector('[data-result-text]');
 const resultList = document.querySelector('[data-result-list]');
 const scorebar = document.querySelector('[data-scorebar]');
 const resetButton = document.querySelector('[data-reset]');
+const projectGenerateEl = document.querySelector('[data-project-generate]');
+const projectGenerateBtn = document.querySelector('[data-project-generate-btn]');
+const projectResultEl = document.querySelector('[data-project-result]');
+const projectPreviewFrame = document.querySelector('[data-project-preview-frame]');
+const projectDownloadBtn = document.querySelector('[data-project-download]');
+const projectCopyBtn = document.querySelector('[data-project-copy]');
+const projectRegenerateBtn = document.querySelector('[data-project-regenerate]');
+const projectCloseBtn = document.querySelector('[data-project-close]');
+const projectStatusEl = document.querySelector('[data-project-status]');
 const adminModal = document.querySelector('[data-admin-modal]');
 const adminOpen = document.querySelector('[data-admin-open]');
 const adminPanel = document.querySelector('[data-admin-panel]');
@@ -274,12 +284,13 @@ function renderResult() {
   resultCard.classList.remove('can', 'maybe', 'no');
 
   if (!complete) {
-    resultLabel.textContent = `已选择 ${answers.size}/${config.length}`;
-    resultTitle.textContent = '继续完成判定';
-    resultText.textContent = '还需要选择剩余问题。优先判断是否属于 AI 应用落地、PoC/MVP、测试评估或部署协同范围。';
-    resultList.innerHTML = '<li>没有完成全部问题前，不建议承诺客户范围。</li><li>如出现生产级总包、无人审核决策、7x24 SLA 或底层模型研发红线，应暂停推进。</li>';
+    resultLabel.textContent = `已确认 ${answers.size}/${config.length}`;
+    resultTitle.textContent = '继续确认';
+    resultText.textContent = '请继续确认剩余问题。全部确认完成且判定为"可以做"后，可生成交付项目页。';
+    resultList.innerHTML = '<li>请根据客户实际情况逐项确认。</li><li>如出现生产级总包、无人审核决策、7x24 SLA 或底层模型研发红线，应暂停推进。</li>';
     scorebar.style.width = `${Math.max(8, answers.size / Math.max(config.length, 1) * 45)}%`;
     scorebar.style.background = 'var(--brand)';
+    toggleProjectGenerate(false);
     return;
   }
 
@@ -295,7 +306,8 @@ function renderResult() {
     resultList.innerHTML = '<li>不要独立承诺生产级平台、核心系统改造或 7x24 SLA。</li><li>不要承接无人审核的高风险自动决策。</li><li>不要把 FDE 定位为大模型底层研发、纯咨询或长期运维托管团队。</li>';
     scorebar.style.background = 'var(--red)';
     renderRecommendedPackages('no');
-  } else if (total >= 8) {
+    toggleProjectGenerate(false);
+  } else if (total >= 6) {
     resultCard.classList.add('can');
     resultLabel.textContent = '可以做';
     resultTitle.textContent = '该需求属于神州鲲泰 FDE 能力范围';
@@ -303,6 +315,7 @@ function renderResult() {
     resultList.innerHTML = '<li>明确业务场景、技术可行性和 MVP 路线图。</li><li>用 RAG、Agent、测试评估或部署验证形成可验收结果。</li><li>沉淀评测报告、部署 checklist、风险清单和后续迭代建议。</li>';
     scorebar.style.background = 'var(--green)';
     renderRecommendedPackages('can');
+    toggleProjectGenerate(true);
   } else {
     resultCard.classList.add('maybe');
     resultLabel.textContent = '需要外部支持';
@@ -311,7 +324,13 @@ function renderResult() {
     resultList.innerHTML = '<li>拆分 FDE 能做的原型、评测、部署验证和协同排障部分。</li><li>生产级架构、复杂权限、核心系统改造和 SLA 需由专业团队负责。</li><li>在合同和验收口径中写清责任边界。</li>';
     scorebar.style.background = 'var(--amber)';
     renderRecommendedPackages('maybe');
+    toggleProjectGenerate(false);
   }
+}
+
+function toggleProjectGenerate(show) {
+  if (projectGenerateEl) projectGenerateEl.hidden = !show;
+  if (!show && projectResultEl) projectResultEl.hidden = true;
 }
 
 const recommendedPackagesEl = document.querySelector('[data-recommended-packages]');
@@ -336,6 +355,201 @@ function renderRecommendedPackages(verdict) {
       </a>`
     ).join('');
 }
+
+// ── 项目交付页生成 ────────────────────────────────────────────────────────────
+
+let lastGeneratedHtml = '';
+let lastProjectContext = null;
+
+function buildProjectPagePrompt(context) {
+  const dimensionDetails = config.map((q, i) => {
+    const answer = context.answers.get(q.id);
+    const selected = answer ? q.options.find((o) => o.label === answer.label) : null;
+    return `${i + 1}. ${q.title}\n   客户选择：${selected ? selected.label : '未选择'}${selected ? '（分值 ' + selected.score + (selected.redflag ? '，红线' : '') + '）' : ''}`;
+  }).join('\n');
+
+  const packageList = context.packages.map((pkg) => `- ${pkg.title}（周期：${pkg.duration}）`).join('\n') || '无';
+
+  return `你是一位面向企业客户的神州鲲泰 FDE 解决方案架构师。
+
+请基于以下需求判定结果，生成一个完整的、独立的、可直接部署的 HTML 项目展示页。
+
+## 客户需求描述
+${context.userText || '（未提供文字描述）'}
+
+## 判定结论
+- 综合结果：${context.verdict === 'can' ? '可以做（属于 FDE 能力范围）' : '需要外部支持（可参与但不宜独立兜底）'}
+- 判定维度详情：
+${dimensionDetails}
+
+## 推荐服务包
+${packageList}
+
+## 页面内容要求
+1. 项目标题与概述：用一句话概括客户需求和 FDE 价值主张
+2. 客户需求理解：清晰复述客户痛点/目标
+3. FDE 解决方案定位：说明 FDE 团队能做什么、边界在哪里
+4. 推荐服务包与交付周期：列出服务包、周期和交付物
+5. 项目价值与预期收益：3-4 条量化或定性的收益
+6. 后续行动建议（CTA）：明确的下一步，如"预约场景诊断工作坊"
+
+## 样式要求
+- 使用神州鲲泰品牌色 #c41230 作为主色
+- 背景以白色/浅灰为主，深色页脚
+- 内联所有 CSS，单文件可独立运行，无需额外依赖
+- 响应式布局，适配移动端
+- 简洁专业，适合向客户展示
+
+## 输出要求
+请只输出完整 HTML 代码，不要任何解释文字。代码用 \`\`\`html 包裹。`;
+}
+
+function extractHtmlCode(response) {
+  if (!response) return '';
+  const match = response.match(/```html\s*([\s\S]*?)```/);
+  return match ? match[1].trim() : response.trim();
+}
+
+function renderProjectPreview(html) {
+  if (!projectPreviewFrame) return;
+  projectPreviewFrame.srcdoc = html;
+}
+
+function showProjectStatus(msg, type) {
+  if (!projectStatusEl) return;
+  projectStatusEl.textContent = msg;
+  projectStatusEl.className = 'project-status' + (type ? ' is-' + type : '');
+  projectStatusEl.hidden = false;
+}
+
+function hideProjectStatus() {
+  if (!projectStatusEl) return;
+  projectStatusEl.hidden = true;
+  projectStatusEl.textContent = '';
+}
+
+function openProjectResult() {
+  if (projectResultEl) projectResultEl.hidden = false;
+  if (projectGenerateEl) projectGenerateEl.hidden = true;
+}
+
+function closeProjectResult() {
+  if (projectResultEl) projectResultEl.hidden = true;
+  if (projectGenerateEl) projectGenerateEl.hidden = false;
+  hideProjectStatus();
+}
+
+function downloadProjectPage(html, filename) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'kuntai-fde-project.html';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function copyProjectCode(html) {
+  try {
+    await navigator.clipboard.writeText(html);
+    showProjectStatus('代码已复制到剪贴板', 'success');
+    setTimeout(hideProjectStatus, 2000);
+  } catch {
+    showProjectStatus('复制失败，请使用下载按钮', 'error');
+  }
+}
+
+async function generateProjectPage() {
+  const aiCfg = loadAIConfig();
+  if (!aiCfg.apiKey) {
+    showProjectStatus('请先在「管理员配置」中设置 AI API Key。', 'error');
+    return;
+  }
+
+  const userText = (aiInput?.value || '').trim();
+  const values = [...answers.values()];
+  const complete = answers.size === config.length;
+  if (!complete) {
+    showProjectStatus('请先完成需求判定。', 'error');
+    return;
+  }
+
+  const total = values.reduce((sum, item) => sum + item.score, 0);
+  const hasRedFlag = values.some((item) => item.redflag);
+  const verdict = hasRedFlag || total <= -3 ? 'no' : total >= 6 ? 'can' : 'maybe';
+  if (verdict === 'no') {
+    showProjectStatus('当前需求不满足承接条件，无法生成交付页。', 'error');
+    return;
+  }
+
+  const recommendedPkgs = verdict === 'can' ? getRecommendedPackages() : [packages.deployment, packages.environment].filter(Boolean);
+  lastProjectContext = { userText, verdict, answers, packages: recommendedPkgs };
+
+  openProjectResult();
+  showProjectStatus('正在生成交付项目页，请稍候…', 'loading');
+  if (projectGenerateBtn) projectGenerateBtn.disabled = true;
+
+  try {
+    const prompt = buildProjectPagePrompt(lastProjectContext);
+    const url = aiCfg.endpoint.replace(/\/+$/, '') + '/v1/chat/completions';
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + aiCfg.apiKey
+      },
+      body: JSON.stringify({
+        model: aiCfg.model,
+        messages: [
+          { role: 'system', content: '你是一个严格按要求输出 HTML 代码的解决方案架构师，只输出完整 HTML 代码，不输出任何解释。' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.5,
+        max_tokens: 4000
+      })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error('API 请求失败 (' + resp.status + '): ' + (errText.slice(0, 200) || resp.statusText));
+    }
+
+    const data = await resp.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('API 返回内容为空');
+
+    lastGeneratedHtml = extractHtmlCode(content);
+    if (!lastGeneratedHtml) throw new Error('未能从响应中提取 HTML 代码');
+
+    renderProjectPreview(lastGeneratedHtml);
+    hideProjectStatus();
+  } catch (err) {
+    showProjectStatus('生成失败: ' + err.message, 'error');
+  } finally {
+    if (projectGenerateBtn) projectGenerateBtn.disabled = false;
+  }
+}
+
+projectGenerateBtn?.addEventListener('click', generateProjectPage);
+projectRegenerateBtn?.addEventListener('click', generateProjectPage);
+projectCloseBtn?.addEventListener('click', closeProjectResult);
+projectDownloadBtn?.addEventListener('click', () => {
+  if (!lastGeneratedHtml) {
+    showProjectStatus('请先生成交付页', 'error');
+    return;
+  }
+  const safeName = (lastProjectContext?.userText || 'kuntai-fde-project').slice(0, 30).replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '_') || 'kuntai-fde-project';
+  downloadProjectPage(lastGeneratedHtml, safeName + '.html');
+});
+projectCopyBtn?.addEventListener('click', () => {
+  if (!lastGeneratedHtml) {
+    showProjectStatus('请先生成交付页', 'error');
+    return;
+  }
+  copyProjectCode(lastGeneratedHtml);
+});
 
 function renderAdmin() {
   if (!adminPanel) return;
@@ -423,7 +637,7 @@ function closeAdminModal() {
   }
 }
 
-adminOpen?.addEventListener('click', openAdminModal);
+document.querySelectorAll('[data-admin-open]').forEach((button) => button.addEventListener('click', openAdminModal));
 document.querySelectorAll('[data-admin-close]').forEach((button) => button.addEventListener('click', closeAdminModal));
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && adminModal && !adminModal.hidden) closeAdminModal();
@@ -537,9 +751,9 @@ function showToast(msg, type) {
 const AI_STORAGE_KEY = 'kuntai-fde-ai-config';
 
 const defaultAIConfig = {
-  endpoint: 'https://api.openai.com',
-  apiKey: '',
-  model: 'gpt-4o-mini'
+  endpoint: 'https://api.senseaudio.cn',
+  apiKey: 'sk-pBbqubOlHanAsYraq0tB0iyTAiu5KM7D51762019C73b48Eb9b940040Cf43E39a',
+  model: 'senseaudio-s2-lite'
 };
 
 function loadAIConfig() {
@@ -559,6 +773,153 @@ const aiInput = document.querySelector('[data-ai-input]');
 const aiSubmit = document.querySelector('[data-ai-submit]');
 const aiStatus = document.querySelector('[data-ai-status]');
 const aiNotice = document.querySelector('[data-ai-notice]');
+const aiImageInput = document.querySelector('[data-ai-image]');
+const aiImagePreview = document.querySelector('[data-ai-image-preview]');
+const aiDocumentInput = document.querySelector('[data-ai-document]');
+const aiDocumentPreview = document.querySelector('[data-ai-doc-preview]');
+const aiDocumentLoading = document.querySelector('[data-ai-doc-loading]');
+const aiDocumentContent = document.querySelector('[data-ai-doc-content]');
+
+let selectedAIImage = null;
+let selectedAIDocument = null;
+
+function renderImagePreview(file, dataUrl) {
+  if (!aiImagePreview) return;
+  selectedAIImage = { file, dataUrl };
+  aiImagePreview.innerHTML = `<img src="${dataUrl}" alt="已选图片" /><button type="button" class="ai-image-remove" data-ai-image-remove title="移除图片">×</button>`;
+  aiImagePreview.hidden = false;
+  aiImagePreview.querySelector('[data-ai-image-remove]')?.addEventListener('click', clearImagePreview);
+}
+
+function clearImagePreview() {
+  selectedAIImage = null;
+  if (aiImagePreview) {
+    aiImagePreview.innerHTML = '';
+    aiImagePreview.hidden = true;
+  }
+  if (aiImageInput) aiImageInput.value = '';
+}
+
+function renderDocumentPreview(file, text) {
+  selectedAIDocument = { file, text };
+  if (aiDocumentContent) {
+    const excerpt = text.replace(/\s+/g, ' ').slice(0, 120);
+    aiDocumentContent.innerHTML = `<div class="ai-doc-info"><strong>📄 ${escapeHtml(file.name)}</strong><span>${escapeHtml(excerpt)}${text.length > 120 ? '…' : ''}</span></div><button type="button" class="ai-image-remove" data-ai-doc-remove title="移除文档">×</button>`;
+    aiDocumentContent.hidden = false;
+    aiDocumentContent.querySelector('[data-ai-doc-remove]')?.addEventListener('click', clearDocumentPreview);
+  }
+  if (aiDocumentPreview) aiDocumentPreview.hidden = false;
+}
+
+function showDocumentLoading() {
+  if (aiDocumentPreview) aiDocumentPreview.hidden = false;
+  if (aiDocumentContent) aiDocumentContent.hidden = true;
+  if (aiDocumentLoading) aiDocumentLoading.hidden = false;
+}
+
+function hideDocumentLoading() {
+  if (aiDocumentLoading) aiDocumentLoading.hidden = true;
+}
+
+function clearDocumentPreview() {
+  selectedAIDocument = null;
+  if (aiDocumentContent) {
+    aiDocumentContent.innerHTML = '';
+    aiDocumentContent.hidden = true;
+  }
+  if (aiDocumentLoading) aiDocumentLoading.hidden = true;
+  if (aiDocumentPreview) aiDocumentPreview.hidden = true;
+  if (aiDocumentInput) aiDocumentInput.value = '';
+}
+
+async function extractDocumentText(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.md') || name.endsWith('.txt') || file.type.startsWith('text/')) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('文档读取失败'));
+      reader.readAsText(file);
+    });
+  }
+
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    if (typeof pdfjsLib === 'undefined') throw new Error('PDF 解析库未加载');
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map((item) => item.str).join(' ') + '\n';
+    }
+    return text;
+  }
+
+  if (name.endsWith('.docx') || name.endsWith('.doc') || file.type.includes('word')) {
+    if (typeof mammoth === 'undefined') throw new Error('Word 解析库未加载');
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  }
+
+  throw new Error('不支持的文档格式：' + file.name);
+}
+
+aiImageInput?.addEventListener('change', (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showAIStatus('图片大小不能超过 5MB', 'error');
+    aiImageInput.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => renderImagePreview(file, reader.result);
+  reader.onerror = () => showAIStatus('图片读取失败', 'error');
+  reader.readAsDataURL(file);
+});
+
+aiInput?.addEventListener('paste', (event) => {
+  const items = event.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      event.preventDefault();
+      const file = item.getAsFile();
+      if (!file) continue;
+      if (file.size > 5 * 1024 * 1024) {
+        showAIStatus('粘贴图片大小不能超过 5MB', 'error');
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => renderImagePreview(file, reader.result);
+      reader.onerror = () => showAIStatus('图片读取失败', 'error');
+      reader.readAsDataURL(file);
+      break;
+    }
+  }
+});
+
+aiDocumentInput?.addEventListener('change', async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    showAIStatus('文档大小不能超过 10MB', 'error');
+    aiDocumentInput.value = '';
+    return;
+  }
+  try {
+    showDocumentLoading();
+    const text = await extractDocumentText(file);
+    renderDocumentPreview(file, text);
+    hideDocumentLoading();
+  } catch (err) {
+    hideDocumentLoading();
+    showAIStatus('文档解析失败: ' + err.message, 'error');
+    aiDocumentInput.value = '';
+  }
+});
 
 function checkAIConfig() {
   if (!aiNotice) return;
@@ -583,22 +944,27 @@ function hideAIStatus() {
   aiStatus.textContent = '';
 }
 
-function buildAIPrompt(userText) {
+function buildAIPrompt(userText, hasImage, docText) {
   const dimensions = config.map((q, i) =>
     `${i + 1}. ${q.title}\n   选项：${q.options.map((o, j) => `[${j}] ${o.label}（分值 ${o.score}${o.redflag ? '，红线' : ''}）`).join(' | ')}`
   ).join('\n');
 
-  return `你是一个专业的需求分析助手。用户将描述一个客户需求，你需要根据以下 ${config.length} 个判定维度分析该需求，并为每个维度选择最合适的选项。
+  const imageHint = hasImage ? '\n用户同时上传了一张图片，请结合图片内容一起分析。' : '';
+  const docHint = docText ? '\n用户同时上传了一份文档，文档内容如下：\n--- 文档开始 ---\n' + docText.slice(0, 8000) + '\n--- 文档结束 ---\n请结合文档内容一起分析。' : '';
+
+  return `你是一个专业的需求分析助手。用户将描述一个客户需求${hasImage ? '并可能提供相关图片' : ''}${docText ? '和相关文档' : ''}，你需要根据以下 ${config.length} 个判定维度分析该需求，并为每个维度选择最合适的选项。
 
 ## 判定维度与选项
 ${dimensions}
 
 ## 用户描述
-${userText}
+${userText}${imageHint}${docHint}
 
 ## 输出要求
 请严格按照以下 JSON 格式输出，不要输出其他内容：
 {
+  "valid": true 或 false,
+  "validity_reason": "如果 valid 为 false，说明为什么不是有效需求；如果为 true，可留空",
   "decisions": [
     { "dimension_id": "维度id", "option_index": 选项序号（从0开始）, "reason": "简短理由" }
   ],
@@ -606,23 +972,32 @@ ${userText}
 }
 
 注意：
-- 每个维度必须选择一个选项
+- 第一步必须先判断用户需求是否有效。有效需求必须同时满足：1）是清晰、具体、可执行的 AI 应用场景；2）包含客户要做什么、解决什么问题或交付什么；3）不直接触碰 FDE 红线。如果只是闲聊、反问、胡言乱语、过度简短、或与 AI 项目无关，请设置 valid 为 false
+- 如果用户描述中已经明确包含以下红线场景，也请设置 valid 为 false：7x24 SLA、长期运维托管、生产级总包、从零训练大模型/底层模型研发、越权操作生产环境、无人审核的高风险自动决策、完整 AI 平台/中台建设
+- 当 valid 为 false 时，decisions 可以全部返回 option_index 0，summary 请直接说明需求不清晰或超出能力边界
+- 当 valid 为 true 时，每个维度必须选择一个选项
 - option_index 对应选项序号（从 0 开始）
 - 如果需求触发任何红线选项，请如实标记
-- summary 用中文简要说明分析结论`;
+- 评分规则：总分 ≥ 6 且没有红线为"可以做"；总分 ≤ -3 或有任何红线为"不能独立承接"；其他为"需要外部支持"
+- summary 请用中文简要说明分析结论，且必须与上述评分结果保持一致，避免出现结论矛盾`;
 }
 
-async function analyzeWithAI(text) {
+async function analyzeWithAI(text, imageDataUrl, docText) {
   const aiCfg = loadAIConfig();
   if (!aiCfg.apiKey) {
     showAIStatus('请先在「管理员配置」中设置 AI API Key。', 'error');
     return;
   }
 
-  const prompt = buildAIPrompt(text);
+  const prompt = buildAIPrompt(text, !!imageDataUrl, docText);
   showAIStatus('AI 正在分析需求，请稍候…', 'loading');
   if (aiSummary) aiSummary.hidden = true;
   if (aiSubmit) aiSubmit.disabled = true;
+
+  const userContent = [{ type: 'text', text: prompt }];
+  if (imageDataUrl) {
+    userContent.push({ type: 'image_url', image_url: { url: imageDataUrl } });
+  }
 
   try {
     const url = aiCfg.endpoint.replace(/\/+$/, '') + '/v1/chat/completions';
@@ -636,7 +1011,7 @@ async function analyzeWithAI(text) {
         model: aiCfg.model,
         messages: [
           { role: 'system', content: '你是一个严格按要求输出 JSON 的分析助手，不要输出任何非 JSON 内容。' },
-          { role: 'user', content: prompt }
+          { role: 'user', content: userContent }
         ],
         temperature: 0.3,
         max_tokens: 1500
@@ -657,7 +1032,24 @@ async function analyzeWithAI(text) {
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) jsonStr = jsonMatch[1].trim();
 
-    const parsed = JSON.parse(jsonStr);
+    // 容错处理：去掉 JSON 内行注释（// 和 /* */）
+    jsonStr = jsonStr
+      .replace(/\/\/[^\n]*/g, '')        // 移除行内注释 // ...
+      .replace(/\/\*[\s\S]*?\*\//g, '')  // 移除块注释 /* ... */
+      .replace(/,\s*([}\]])/g, '$1');    // 移除尾部多余逗号
+
+    // 如果内容不是标准 JSON，尝试提取第一个 { ... } 块
+    if (!jsonStr.startsWith('{')) {
+      const objMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (objMatch) jsonStr = objMatch[0];
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (e) {
+      throw new Error('AI 返回格式解析失败，请重试。（详情：' + e.message + '）');
+    }
     applyAIResult(parsed);
   } catch (err) {
     showAIStatus('分析失败: ' + err.message, 'error');
@@ -673,53 +1065,125 @@ function applyAIResult(result) {
     return;
   }
 
-  // Clear previous answers
-  answers.clear();
+  // 第一步：需求有效性关卡。如果 AI 判断不是有效需求，直接拦截，不进入 6 维度判定。
+  if (result?.valid === false) {
+    hideAIStatus();
+    if (aiSummary && aiSummaryContent) {
+      const reason = result?.validity_reason || '需求描述不清晰或不完整，无法判断是否需要 FDE 参与。';
+      aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">AI 初筛结论：当前输入不是一个可执行的 AI 项目需求。</p><p style="margin:0;color:var(--red);font-size:13px;font-weight:600;">' + escapeHtml(reason) + ' 请补充客户场景、目标和预期交付物后再试。</p>';
+      aiSummary.hidden = false;
+    }
+    return;
+  }
 
-  const appliedIds = [];
+  // AI 只做初筛，不直接写入 answers；用户需要手动确认全部问题
+  const aiScores = [];
+  const aiRedFlags = [];
+  const decisionDetails = [];
   for (const decision of decisions) {
     const question = config.find(q => q.id === decision.dimension_id);
     if (!question) continue;
     const optIdx = Number(decision.option_index);
     const option = question.options[optIdx];
     if (!option) continue;
-    answers.set(question.id, {
-      score: Number(option.score),
-      redflag: Boolean(option.redflag),
-      optionIndex: optIdx
-    });
-    appliedIds.push(question.id);
+    aiScores.push(Number(option.score));
+    if (option.redflag) aiRedFlags.push(question.id);
+    decisionDetails.push({ question, option, reason: decision.reason });
   }
+
+  const total = aiScores.reduce((sum, s) => sum + s, 0);
+  const hasRedFlag = aiRedFlags.length > 0;
+  const aiVerdict = hasRedFlag || total <= -3 ? 'no' : total >= 6 ? 'can' : 'maybe';
+
+  // 根据计算出的 verdict 生成与结论严格一致的摘要，避免 AI 摘要与判定结果矛盾
+  const redFlagNames = decisionDetails.filter(d => d.option.redflag).map(d => d.question.title);
+  let summaryText;
+  if (aiVerdict === 'can') {
+    summaryText = 'AI 初筛通过：需求场景清晰、边界可控，属于 FDE 能力范围。请继续手动确认以下 6 个维度。';
+  } else if (aiVerdict === 'maybe') {
+    summaryText = 'AI 初筛结论：需求可以参与，但存在不确定性或需外部支持。请结合客户实际情况手动确认以下 6 个维度，最终能否生成交付页由手动确认结果决定。';
+  } else {
+    summaryText = 'AI 初筛结论：需求触碰到 ' + (redFlagNames.length ? redFlagNames.join('、') : '红线场景') + '，不适合由 FDE 小队独立承接。建议转交或重新收敛需求。';
+  }
+
+  // 只有 AI 初筛不是"不能独立承接"时才展开问题面板供用户确认
+  if (aiVerdict === 'no') {
+    hideAIStatus();
+    if (aiSummary && aiSummaryContent) {
+      const reasonText = hasRedFlag
+        ? 'AI 初筛发现红线风险，建议重新收敛需求或转交其他团队评估。'
+        : 'AI 初筛认为该需求暂不满足承接条件，建议重新收敛需求后再试。';
+      aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(summaryText) + '</p><p style="margin:0;color:var(--red);font-size:13px;font-weight:600;">' + reasonText + '</p>';
+      aiSummary.hidden = false;
+    }
+    return;
+  }
+
+  // AI 初筛通过（包含"可以做"和"需要外部支持"），展开问题面板
+  if (decisionStage) decisionStage.hidden = false;
+  decisionStage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   restoreSelectedButtons();
   renderResult();
 
-  // Show summary
   hideAIStatus();
   if (aiSummary && aiSummaryContent) {
-    const summaryText = result?.summary || '分析完成';
-    const items = decisions
-      .filter(d => {
-        const q = config.find(q2 => q2.id === d.dimension_id);
-        return q && q.options[Number(d.option_index)];
-      })
-      .map(d => {
-        const q = config.find(q2 => q2.id === d.dimension_id);
-        const opt = q.options[Number(d.option_index)];
-        return '<li><strong>' + escapeHtml(q.title) + '</strong> → ' + escapeHtml(opt.label) + '（' + escapeHtml(d.reason || '') + '）</li>';
-      });
-    aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(summaryText) + '</p><ul>' + items.join('') + '</ul>';
+    const items = decisionDetails.map(d =>
+      '<li><strong>' + escapeHtml(d.question.title) + '</strong> → ' + escapeHtml(d.option.label) + '（' + escapeHtml(d.reason || '') + '）</li>'
+    );
+    const confirmHint = '<p style="margin:0 0 10px;color:var(--brand);font-size:13px;font-weight:600;">请手动确认以下 6 个问题。全部确认完成后，只有判定为"可以做"才会出现生成按钮。</p>';
+    aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(summaryText) + '</p>' + confirmHint + '<ul>' + items.join('') + '</ul>';
     aiSummary.hidden = false;
   }
 }
 
 aiSubmit?.addEventListener('click', () => {
   const text = (aiInput?.value || '').trim();
-  if (!text) {
-    showAIStatus('请先输入需求描述。', 'error');
+  const imageDataUrl = selectedAIImage?.dataUrl;
+  const docText = selectedAIDocument?.text;
+  if (!text && !imageDataUrl && !docText) {
+    showAIStatus('请先输入需求描述、上传图片或上传文档。', 'error');
     return;
   }
-  analyzeWithAI(text);
+  // 仅文字输入时做基础有效性校验
+  if (text && !imageDataUrl && !docText) {
+    if (text.length < 15) {
+      showAIStatus('需求描述过于简短，请至少说明客户场景、目标和预期交付物。', 'error');
+      return;
+    }
+    const questionPatterns = /(什么意思|怎么办|为什么|吗|？|\?|怎么|如何|是不是|可不可以|能不能|啥|谁|哪里|几个|多少|什么)/;
+    if (questionPatterns.test(text)) {
+      showAIStatus('输入内容更像疑问而非需求描述，请补充具体的客户需求。', 'error');
+      return;
+    }
+    // 检测无意义重复或乱码
+    const repeatPattern = /(.+)\1{2,}/;
+    if (repeatPattern.test(text)) {
+      showAIStatus('检测到重复或无意义内容，请补充真实客户需求。', 'error');
+      return;
+    }
+    // 检测中英文混杂乱码：中文字符占比过低或存在大量无意义重复音节
+    const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+    const totalChars = text.replace(/\s/g, '').length;
+    if (totalChars > 0 && chineseChars.length / totalChars < 0.5) {
+      showAIStatus('需求描述中文占比过低，疑似乱码或外文堆砌，请用中文补充真实需求。', 'error');
+      return;
+    }
+    // 检测无意义重复音节（如"撒旦""倒萨"等反复出现）
+    const syllablePattern = /([\u4e00-\u9fa5]{2,}).*\1.*\1/;
+    if (syllablePattern.test(text)) {
+      showAIStatus('检测到无意义重复内容，请补充真实客户需求。', 'error');
+      return;
+    }
+    // 必须同时包含动作/交付意向词 和 对象/场景词
+    const actionWords = /(需要|想要|希望|做|开发|搭建|部署|实现|分析|处理|生成|构建|设计|制作|训练|验证|测试|集成|接入|落地|交付)/;
+    const objectWords = /(客户|项目|系统|平台|工具|网页|网站|应用|小程序|AI|模型|数据|报告|方案|知识库|Agent|RAG|流程|接口|服务|功能|模块|场景)/;
+    if (!actionWords.test(text) || !objectWords.test(text)) {
+      showAIStatus('需求描述缺少动作或对象，请补充"客户要做什么"以及"做什么东西/系统"。', 'error');
+      return;
+    }
+  }
+  analyzeWithAI(text, imageDataUrl, docText);
 });
 
 // Allow Ctrl+Enter to submit
