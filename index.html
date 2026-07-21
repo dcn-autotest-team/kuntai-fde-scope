@@ -64,7 +64,7 @@
         <div class="ai-panel" data-ai-panel>
           <div class="ai-panel-head">
             <span class="ai-badge">AI</span>
-            <div><h3>AI 智能判定</h3><p>输入需求描述，AI 将自动分析并填充判定维度。</p></div>
+            <div><h3>AI 智能判定</h3><p>输入需求描述，Agent 将自主规划分析步骤、检索历史经验并完成初筛。</p></div>
           </div>
           <div class="ai-notice" data-ai-notice hidden>
             <span>⚠️ AI 智能判定尚未配置 API Key，请先完成配置再使用。</span>
@@ -96,9 +96,34 @@
             <button class="btn primary ai-submit" type="button" data-ai-submit>AI 智能判定</button>
           </div>
           <div class="ai-status" data-ai-status hidden></div>
+          <div class="agent-trace" data-agent-trace hidden>
+            <div class="agent-trace-head">
+              <span class="agent-pulse" data-agent-pulse></span>
+              <h4>Agent 思考过程</h4>
+            </div>
+            <div class="agent-plan" data-agent-plan hidden>
+              <p class="agent-plan-title">分析计划</p>
+              <p class="agent-plan-reasoning" data-agent-plan-reasoning></p>
+              <ol class="agent-steps" data-agent-steps></ol>
+            </div>
+            <div class="agent-tools" data-agent-tools></div>
+            <div class="agent-reflection" data-agent-reflection hidden></div>
+          </div>
           <div class="ai-summary" data-ai-summary hidden>
             <h4>AI 分析摘要</h4>
             <div data-ai-summary-content></div>
+          </div>
+          <div class="evo-panel" data-evo-panel>
+            <div class="evo-head">
+              <span class="evo-title">Agent 进化看板</span>
+              <span class="evo-sub">Agent 会从每次人工确认中学习，判定能力持续进化</span>
+            </div>
+            <div class="evo-stats">
+              <div><strong data-evo-cases>0</strong><span>累计判定案例</span></div>
+              <div><strong data-evo-rate>—</strong><span>AI 建议采纳率</span></div>
+              <div><strong data-evo-lessons>0</strong><span>沉淀经验</span></div>
+            </div>
+            <div class="evo-trend" data-evo-trend hidden></div>
           </div>
         </div>
         <div class="decision-stage" data-decision-stage hidden>

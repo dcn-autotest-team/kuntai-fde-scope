@@ -326,6 +326,7 @@ function renderResult() {
     renderRecommendedPackages('maybe');
     toggleProjectGenerate(false);
   }
+  maybeSubmitFeedback();
 }
 
 function toggleProjectGenerate(show) {
@@ -360,55 +361,6 @@ function renderRecommendedPackages(verdict) {
 
 let lastGeneratedHtml = '';
 let lastProjectContext = null;
-
-function buildProjectPagePrompt(context) {
-  const dimensionDetails = config.map((q, i) => {
-    const answer = context.answers.get(q.id);
-    const selected = answer ? q.options.find((o) => o.label === answer.label) : null;
-    return `${i + 1}. ${q.title}\n   客户选择：${selected ? selected.label : '未选择'}${selected ? '（分值 ' + selected.score + (selected.redflag ? '，红线' : '') + '）' : ''}`;
-  }).join('\n');
-
-  const packageList = context.packages.map((pkg) => `- ${pkg.title}（周期：${pkg.duration}）`).join('\n') || '无';
-
-  return `你是一位面向企业客户的神州鲲泰 FDE 解决方案架构师。
-
-请基于以下需求判定结果，生成一个完整的、独立的、可直接部署的 HTML 项目展示页。
-
-## 客户需求描述
-${context.userText || '（未提供文字描述）'}
-
-## 判定结论
-- 综合结果：${context.verdict === 'can' ? '可以做（属于 FDE 能力范围）' : '需要外部支持（可参与但不宜独立兜底）'}
-- 判定维度详情：
-${dimensionDetails}
-
-## 推荐服务包
-${packageList}
-
-## 页面内容要求
-1. 项目标题与概述：用一句话概括客户需求和 FDE 价值主张
-2. 客户需求理解：清晰复述客户痛点/目标
-3. FDE 解决方案定位：说明 FDE 团队能做什么、边界在哪里
-4. 推荐服务包与交付周期：列出服务包、周期和交付物
-5. 项目价值与预期收益：3-4 条量化或定性的收益
-6. 后续行动建议（CTA）：明确的下一步，如"预约场景诊断工作坊"
-
-## 样式要求
-- 使用神州鲲泰品牌色 #c41230 作为主色
-- 背景以白色/浅灰为主，深色页脚
-- 内联所有 CSS，单文件可独立运行，无需额外依赖
-- 响应式布局，适配移动端
-- 简洁专业，适合向客户展示
-
-## 输出要求
-请只输出完整 HTML 代码，不要任何解释文字。代码用 \`\`\`html 包裹。`;
-}
-
-function extractHtmlCode(response) {
-  if (!response) return '';
-  const match = response.match(/```html\s*([\s\S]*?)```/);
-  return match ? match[1].trim() : response.trim();
-}
 
 function renderProjectPreview(html) {
   if (!projectPreviewFrame) return;
@@ -462,8 +414,7 @@ async function copyProjectCode(html) {
 }
 
 async function generateProjectPage() {
-  const aiCfg = loadAIConfig();
-  if (!aiCfg.apiKey) {
+  if (!serverAIConfig.hasKey) {
     showProjectStatus('请先在「管理员配置」中设置 AI API Key。', 'error');
     return;
   }
@@ -492,35 +443,25 @@ async function generateProjectPage() {
   if (projectGenerateBtn) projectGenerateBtn.disabled = true;
 
   try {
-    const prompt = buildProjectPagePrompt(lastProjectContext);
-    const url = aiCfg.endpoint.replace(/\/+$/, '') + '/v1/chat/completions';
-    const resp = await fetch(url, {
+    const answersPayload = config.map((q) => {
+      const answer = answers.get(q.id);
+      return { dimension_id: q.id, option_index: answer?.optionIndex ?? 0 };
+    });
+    const resp = await fetch('/api/generate-page', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + aiCfg.apiKey
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: aiCfg.model,
-        messages: [
-          { role: 'system', content: '你是一个严格按要求输出 HTML 代码的解决方案架构师，只输出完整 HTML 代码，不输出任何解释。' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.5,
-        max_tokens: 4000
+        userText,
+        verdict,
+        answers: answersPayload,
+        packages: recommendedPkgs,
+        dimensions: config
       })
     });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || !data?.ok) throw new Error(data?.message || '生成请求失败 (' + resp.status + ')');
 
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      throw new Error('API 请求失败 (' + resp.status + '): ' + (errText.slice(0, 200) || resp.statusText));
-    }
-
-    const data = await resp.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) throw new Error('API 返回内容为空');
-
-    lastGeneratedHtml = extractHtmlCode(content);
+    lastGeneratedHtml = data.html;
     if (!lastGeneratedHtml) throw new Error('未能从响应中提取 HTML 代码');
 
     renderProjectPreview(lastGeneratedHtml);
@@ -553,16 +494,21 @@ projectCopyBtn?.addEventListener('click', () => {
 
 function renderAdmin() {
   if (!adminPanel) return;
-  const aiCfg = loadAIConfig();
+  const aiCfg = adminAIConfigCache || { endpoint: serverAIConfig.endpoint, apiKey: '', model: serverAIConfig.model };
   adminPanel.innerHTML = `
     <section class="ai-config-section">
       <h3>AI 智能判定配置</h3>
-      <p>配置 OpenAI 兼容 API，用于需求智能判定功能。</p>
+      <p>配置 OpenAI 兼容 API，密钥保存在服务端，用于 Agent 需求智能判定。</p>
       <div class="ai-config-fields">
         <label>API Endpoint<input data-ai-cfg-endpoint value="${escapeAttr(aiCfg.endpoint)}" placeholder="https://api.openai.com" /></label>
         <label>API Key<input data-ai-cfg-key type="password" value="${escapeAttr(aiCfg.apiKey)}" placeholder="sk-..." /></label>
         <label>Model<input data-ai-cfg-model value="${escapeAttr(aiCfg.model)}" placeholder="gpt-4o-mini" /></label>
       </div>
+    </section>
+    <section class="ai-config-section lessons-section">
+      <h3>经验库管理</h3>
+      <p>人工确认沉淀的经验会注入后续 AI 判定，错误经验会污染分析，可在此修正或删除。</p>
+      <div class="lessons-list" data-lessons-list><p class="lessons-empty">加载中…</p></div>
     </section>
   ` + config.map((question, qIndex) => `
     <article class="admin-question" data-admin-question="${qIndex}">
@@ -596,6 +542,144 @@ function escapeAttr(value) {
   return escapeHtml(value);
 }
 
+// ── 经验库管理（管理员策展，复用 adminToken 鉴权） ────────────────────────────
+const DIMENSION_TITLES = Object.fromEntries(defaultConfig.map((q) => [q.id, q.title]));
+let adminLessonsCache = [];
+
+function formatLessonTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function loadLessons() {
+  const listEl = adminPanel?.querySelector('[data-lessons-list]');
+  if (!listEl || !adminToken) return;
+  try {
+    const resp = await fetch('/api/admin/lessons', { headers: { 'x-admin-token': adminToken } });
+    const data = await resp.json().catch(() => null);
+    if (resp.status === 401) {
+      showToast('登录已过期，请重新登录管理员', 'error');
+      setAdminVisible(false);
+      return;
+    }
+    if (!resp.ok || !data?.ok) throw new Error(data?.message || '经验库加载失败');
+    adminLessonsCache = data.lessons || [];
+    renderLessons(listEl, adminLessonsCache);
+  } catch (err) {
+    listEl.innerHTML = `<p class="lessons-empty">${escapeHtml(err.message || '经验库加载失败')}</p>`;
+  }
+}
+
+function renderLessons(listEl, lessons) {
+  if (!lessons.length) {
+    listEl.innerHTML = '<p class="lessons-empty">暂无沉淀的经验。人工确认与 AI 建议不一致时会自动沉淀。</p>';
+    return;
+  }
+  listEl.innerHTML = lessons.map((item) => {
+    const dimTitle = item.dimensionId ? (DIMENSION_TITLES[item.dimensionId] || item.dimensionId) : null;
+    const src = item.sourceCase;
+    const sourceBlock = src ? `
+        <details class="lesson-source">
+          <summary>来源案例（${src.aiVerdict ? verdictText(src.aiVerdict) : '未判定'}${src.corrections?.length ? ` · ${src.corrections.length} 处人工纠正` : ''}）</summary>
+          <p>${escapeHtml((src.requirementText || '').slice(0, 300))}${(src.requirementText || '').length > 300 ? '…' : ''}</p>
+        </details>` : (item.context ? `
+        <details class="lesson-source">
+          <summary>来源上下文</summary>
+          <p>${escapeHtml(item.context)}</p>
+        </details>` : '');
+    return `
+    <article class="lesson-card" data-lesson-id="${escapeAttr(item.id)}">
+      <p class="lesson-text">${escapeHtml(item.lesson)}</p>
+      <div class="lesson-meta">
+        ${dimTitle ? `<span class="lesson-dim">${escapeHtml(dimTitle)}</span>` : '<span class="lesson-dim none">未关联维度</span>'}
+        <span class="lesson-time">${formatLessonTime(item.createdAt)}</span>
+      </div>
+      ${sourceBlock}
+      <div class="lesson-actions">
+        <button class="btn light" type="button" data-lesson-edit>编辑</button>
+        <button class="btn light danger" type="button" data-lesson-delete>删除</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function renderLessonEdit(card, item) {
+  const dimOptions = ['<option value="">（不关联维度）</option>']
+    .concat(defaultConfig.map((q) =>
+      `<option value="${escapeAttr(q.id)}" ${item.dimensionId === q.id ? 'selected' : ''}>${escapeHtml(q.title)}</option>`))
+    .join('');
+  card.innerHTML = `
+    <div class="lesson-edit">
+      <textarea data-lesson-input rows="3">${escapeHtml(item.lesson)}</textarea>
+      <select data-lesson-dim>${dimOptions}</select>
+      <div class="lesson-actions">
+        <button class="btn primary" type="button" data-lesson-save>保存</button>
+        <button class="btn light" type="button" data-lesson-cancel>取消</button>
+      </div>
+    </div>`;
+  card.querySelector('[data-lesson-input]')?.focus();
+}
+
+// 事件委托：经验卡片的编辑/删除/保存/取消
+adminPanel?.addEventListener('click', async (event) => {
+  const card = event.target.closest('[data-lesson-id]');
+  if (!card) return;
+  const id = card.dataset.lessonId;
+  const item = adminLessonsCache.find((l) => l.id === id);
+
+  if (event.target.closest('[data-lesson-delete]') && item) {
+    if (!window.confirm(`确定删除这条经验吗？删除后不再注入后续判定。\n\n${item.lesson}`)) return;
+    try {
+      const resp = await fetch(`/api/admin/lessons/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': adminToken || '' }
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data?.ok) throw new Error(data?.message || '删除失败');
+      showToast('经验已删除', 'success');
+      loadLessons();
+      loadEvolutionStats();
+    } catch (err) {
+      showToast(err.message || '删除失败', 'error');
+    }
+    return;
+  }
+
+  if (event.target.closest('[data-lesson-edit]') && item) {
+    renderLessonEdit(card, item);
+    return;
+  }
+
+  if (event.target.closest('[data-lesson-cancel]')) {
+    const listEl = adminPanel.querySelector('[data-lessons-list]');
+    if (listEl) renderLessons(listEl, adminLessonsCache);
+    return;
+  }
+
+  if (event.target.closest('[data-lesson-save]')) {
+    const lesson = (card.querySelector('[data-lesson-input]')?.value || '').trim();
+    const dimensionId = card.querySelector('[data-lesson-dim]')?.value || null;
+    if (!lesson) {
+      showToast('经验内容不能为空', 'error');
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/admin/lessons/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken || '' },
+        body: JSON.stringify({ lesson, dimensionId })
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data?.ok) throw new Error(data?.message || '保存失败');
+      showToast('经验已更新', 'success');
+      loadLessons();
+    } catch (err) {
+      showToast(err.message || '保存失败', 'error');
+    }
+  }
+});
+
 resetButton?.addEventListener('click', () => {
   answers.clear();
   if (recommendedPackagesEl) recommendedPackagesEl.hidden = true;
@@ -606,7 +690,10 @@ resetButton?.addEventListener('click', () => {
 function setAdminVisible(visible) {
   if (adminLogin) adminLogin.hidden = visible;
   if (adminPrivate) adminPrivate.hidden = !visible;
-  if (visible) renderAdmin();
+  if (visible) {
+    renderAdmin();
+    loadLessons();
+  }
 }
 
 let previousFocus = null;
@@ -643,15 +730,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && adminModal && !adminModal.hidden) closeAdminModal();
 });
 
-// 管理员密码哈希 (SHA-256)，明文不存储在源码中
-const ADMIN_PWD_HASH = 'c638bc74f30482cae5ec685f12c435196bca31a591b6943157e6f38c973ad467';
-
-async function hashPassword(password) {
-  const data = new TextEncoder().encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
+// 管理员认证由服务端完成，前端不存储密码哈希
 adminLoginForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const pwd = adminPassword.value;
@@ -659,32 +738,60 @@ adminLoginForm?.addEventListener('submit', async (event) => {
     if (adminError) adminError.textContent = '请输入密码';
     return;
   }
-  const hash = await hashPassword(pwd);
-  if (hash === ADMIN_PWD_HASH) {
+  try {
+    const resp = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || !data?.ok) throw new Error(data?.message || '登录失败，请确认服务端已启动');
+    adminToken = data.token;
+    if (data.config) {
+      adminAIConfigCache = data.config;
+      serverAIConfig = { endpoint: data.config.endpoint || '', model: data.config.model || '', hasKey: Boolean(data.config.apiKey) };
+    }
     adminPassword.value = '';
     if (adminError) adminError.textContent = '';
     setAdminVisible(true);
-  } else {
-    if (adminError) adminError.textContent = '密码错误，请重试';
+  } catch (err) {
+    if (adminError) adminError.textContent = err.message || '密码错误，请重试';
     adminPassword.value = '';
   }
 });
 
-adminLogout?.addEventListener('click', () => setAdminVisible(false));
+adminLogout?.addEventListener('click', () => {
+  adminToken = null;
+  adminAIConfigCache = null;
+  setAdminVisible(false);
+});
 
-adminSave?.addEventListener('click', () => {
+adminSave?.addEventListener('click', async () => {
   config = readAdminConfig();
   saveConfig();
-  // Save AI config
+  // AI 配置保存到服务端（需管理员令牌）
   const aiCfgNew = {
-    endpoint: (adminPanel.querySelector('[data-ai-cfg-endpoint]')?.value || '').trim() || defaultAIConfig.endpoint,
+    endpoint: (adminPanel.querySelector('[data-ai-cfg-endpoint]')?.value || '').trim(),
     apiKey: (adminPanel.querySelector('[data-ai-cfg-key]')?.value || '').trim(),
-    model: (adminPanel.querySelector('[data-ai-cfg-model]')?.value || '').trim() || defaultAIConfig.model
+    model: (adminPanel.querySelector('[data-ai-cfg-model]')?.value || '').trim()
   };
-  saveAIConfig(aiCfgNew);
+  try {
+    const resp = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken || '' },
+      body: JSON.stringify(aiCfgNew)
+    });
+    const data = await resp.json().catch(() => null);
+    if (!resp.ok || !data?.ok) throw new Error(data?.message || 'AI 配置保存失败');
+    adminAIConfigCache = { ...adminAIConfigCache, ...aiCfgNew };
+  } catch (err) {
+    showToast(err.message || 'AI 配置保存失败', 'error');
+    return;
+  }
   answers.clear();
   renderQuestions();
   renderAdmin();
+  loadLessons();
   checkAIConfig();
   showToast('配置已保存', 'success');
 });
@@ -692,11 +799,10 @@ adminSave?.addEventListener('click', () => {
 adminReset?.addEventListener('click', () => {
   config = structuredClone(defaultConfig);
   saveConfig();
-  saveAIConfig(defaultAIConfig);
   answers.clear();
   renderQuestions();
   renderAdmin();
-  showToast('已恢复默认配置', 'info');
+  showToast('已恢复默认判定配置', 'info');
 });
 
 document.querySelectorAll('[data-case]').forEach((button) => {
@@ -747,27 +853,11 @@ function showToast(msg, type) {
   }, 2000);
 }
 
-// ── AI 智能判定 ────────────────────────────────────────────────────────────────
-const AI_STORAGE_KEY = 'kuntai-fde-ai-config';
-
-const defaultAIConfig = {
-  endpoint: 'https://api.senseaudio.cn',
-  apiKey: 'sk-pBbqubOlHanAsYraq0tB0iyTAiu5KM7D51762019C73b48Eb9b940040Cf43E39a',
-  model: 'senseaudio-s2-lite'
-};
-
-function loadAIConfig() {
-  try {
-    const saved = localStorage.getItem(AI_STORAGE_KEY);
-    return saved ? { ...defaultAIConfig, ...JSON.parse(saved) } : { ...defaultAIConfig };
-  } catch {
-    return { ...defaultAIConfig };
-  }
-}
-
-function saveAIConfig(cfg) {
-  localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(cfg));
-}
+// ── AI 智能判定（Agent 版，由 Node 服务端承载） ────────────────────────────────
+// AI 服务配置与密钥均在服务端管理，前端不再存储明文 Key
+let serverAIConfig = { endpoint: '', model: '', hasKey: false };
+let adminToken = null;
+let adminAIConfigCache = null;
 
 const aiInput = document.querySelector('[data-ai-input]');
 const aiSubmit = document.querySelector('[data-ai-submit]');
@@ -921,12 +1011,23 @@ aiDocumentInput?.addEventListener('change', async (event) => {
   }
 });
 
-function checkAIConfig() {
-  if (!aiNotice) return;
-  const cfg = loadAIConfig();
-  aiNotice.hidden = !!(cfg.apiKey && cfg.apiKey.trim());
+async function checkAIConfig() {
+  try {
+    const resp = await fetch('/api/config');
+    if (!resp.ok) throw new Error('config fetch failed');
+    const cfg = await resp.json();
+    serverAIConfig = { endpoint: cfg.endpoint || '', model: cfg.model || '', hasKey: Boolean(cfg.hasKey) };
+    if (aiNotice) aiNotice.hidden = serverAIConfig.hasKey;
+  } catch {
+    // 服务端不可达时提示启动服务
+    if (aiNotice) {
+      aiNotice.hidden = false;
+      const span = aiNotice.querySelector('span');
+      if (span) span.textContent = '⚠️ 无法连接 Agent 服务，请先运行 npm start 启动服务端。';
+    }
+  }
 }
-checkAIConfig(); // 初始化时检查 API Key 状态
+checkAIConfig(); // 初始化时检查服务端配置状态
 const aiSummary = document.querySelector('[data-ai-summary]');
 const aiSummaryContent = document.querySelector('[data-ai-summary-content]');
 
@@ -944,198 +1045,341 @@ function hideAIStatus() {
   aiStatus.textContent = '';
 }
 
-function buildAIPrompt(userText, hasImage, docText) {
-  const dimensions = config.map((q, i) =>
-    `${i + 1}. ${q.title}\n   选项：${q.options.map((o, j) => `[${j}] ${o.label}（分值 ${o.score}${o.redflag ? '，红线' : ''}）`).join(' | ')}`
-  ).join('\n');
+// ── Agent 思考过程渲染 ────────────────────────────────────────────────────────
+const agentTrace = document.querySelector('[data-agent-trace]');
+const agentPlan = document.querySelector('[data-agent-plan]');
+const agentPlanReasoning = document.querySelector('[data-agent-plan-reasoning]');
+const agentSteps = document.querySelector('[data-agent-steps]');
+const agentTools = document.querySelector('[data-agent-tools]');
+const agentReflection = document.querySelector('[data-agent-reflection]');
+const agentPulse = document.querySelector('[data-agent-pulse]');
 
-  const imageHint = hasImage ? '\n用户同时上传了一张图片，请结合图片内容一起分析。' : '';
-  const docHint = docText ? '\n用户同时上传了一份文档，文档内容如下：\n--- 文档开始 ---\n' + docText.slice(0, 8000) + '\n--- 文档结束 ---\n请结合文档内容一起分析。' : '';
+const agentStepEls = new Map();
 
-  return `你是一个专业的需求分析助手。用户将描述一个客户需求${hasImage ? '并可能提供相关图片' : ''}${docText ? '和相关文档' : ''}，你需要根据以下 ${config.length} 个判定维度分析该需求，并为每个维度选择最合适的选项。
-
-## 判定维度与选项
-${dimensions}
-
-## 用户描述
-${userText}${imageHint}${docHint}
-
-## 输出要求
-请严格按照以下 JSON 格式输出，不要输出其他内容：
-{
-  "valid": true 或 false,
-  "validity_reason": "如果 valid 为 false，说明为什么不是有效需求；如果为 true，可留空",
-  "decisions": [
-    { "dimension_id": "维度id", "option_index": 选项序号（从0开始）, "reason": "简短理由" }
-  ],
-  "summary": "整体分析摘要（一两句话）"
+function verdictText(v) {
+  return { can: '可以做', maybe: '需要外部支持', no: '不能独立承接' }[v] || '未知';
 }
 
-注意：
-- 第一步必须先判断用户需求是否有效。有效需求必须同时满足：1）是清晰、具体、可执行的 AI 应用场景；2）包含客户要做什么、解决什么问题或交付什么；3）不直接触碰 FDE 红线。如果只是闲聊、反问、胡言乱语、过度简短、或与 AI 项目无关，请设置 valid 为 false
-- 如果用户描述中已经明确包含以下红线场景，也请设置 valid 为 false：7x24 SLA、长期运维托管、生产级总包、从零训练大模型/底层模型研发、越权操作生产环境、无人审核的高风险自动决策、完整 AI 平台/中台建设
-- 当 valid 为 false 时，decisions 可以全部返回 option_index 0，summary 请直接说明需求不清晰或超出能力边界
-- 当 valid 为 true 时，每个维度必须选择一个选项
-- option_index 对应选项序号（从 0 开始）
-- 如果需求触发任何红线选项，请如实标记
-- 评分规则：总分 ≥ 6 且没有红线为"可以做"；总分 ≤ -3 或有任何红线为"不能独立承接"；其他为"需要外部支持"
-- summary 请用中文简要说明分析结论，且必须与上述评分结果保持一致，避免出现结论矛盾`;
+function resetAgentTrace() {
+  if (agentTrace) agentTrace.hidden = false;
+  if (agentPlan) agentPlan.hidden = true;
+  if (agentPlanReasoning) agentPlanReasoning.textContent = '';
+  if (agentSteps) agentSteps.innerHTML = '';
+  if (agentTools) agentTools.innerHTML = '';
+  if (agentReflection) { agentReflection.hidden = true; agentReflection.innerHTML = ''; }
+  if (agentPulse) agentPulse.classList.add('is-active');
+  agentStepEls.clear();
+}
+
+function finishAgentTrace() {
+  if (agentPulse) agentPulse.classList.remove('is-active');
+}
+
+function renderAgentPlan(data) {
+  if (!agentPlan || !agentSteps) return;
+  agentPlan.hidden = false;
+  if (agentPlanReasoning) agentPlanReasoning.textContent = data.reasoning || '';
+  agentSteps.innerHTML = '';
+  agentStepEls.clear();
+  (data.steps || []).forEach((step) => {
+    const li = document.createElement('li');
+    li.className = 'agent-step';
+    li.innerHTML = '<span class="agent-step-icon"></span><div><strong>' + escapeHtml(step.label || step.tool) + '</strong><p>' + escapeHtml(step.purpose || '') + '</p></div>';
+    agentSteps.appendChild(li);
+    agentStepEls.set(step.tool, li);
+  });
+}
+
+function markStep(tool, status) {
+  const li = agentStepEls.get(tool);
+  if (!li) return;
+  li.classList.remove('is-running', 'is-done', 'is-error');
+  li.classList.add(status);
+}
+
+function renderToolCard(tool, label, purpose) {
+  if (!agentTools) return null;
+  const card = document.createElement('div');
+  card.className = 'agent-tool-card is-running';
+  card.innerHTML = '<div class="agent-tool-head"><span class="agent-tool-spinner"></span><strong>' + escapeHtml(label || tool) + '</strong></div>'
+    + (purpose ? '<p class="agent-tool-purpose">' + escapeHtml(purpose) + '</p>' : '')
+    + '<div class="agent-tool-body" hidden></div>';
+  agentTools.appendChild(card);
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  return card;
+}
+
+function completeToolCard(card, summary, data, isError) {
+  if (!card) return;
+  card.classList.remove('is-running');
+  if (isError) card.classList.add('is-error');
+  const spinner = card.querySelector('.agent-tool-spinner');
+  if (spinner) spinner.remove();
+  const body = card.querySelector('.agent-tool-body');
+  if (body) {
+    body.hidden = false;
+    body.innerHTML = '<p class="agent-tool-summary">' + escapeHtml(summary || '') + '</p>' + renderToolDetail(data);
+  }
+}
+
+function renderToolDetail(data) {
+  if (!data) return '';
+  if (Array.isArray(data.cases) || Array.isArray(data.lessons)) {
+    let html = '';
+    if (data.cases?.length) {
+      html += '<ul class="agent-tool-list">' + data.cases.map((c) =>
+        '<li>相似案例：' + escapeHtml(c.excerpt) + '…（结论：' + escapeHtml(verdictText(c.verdict)) + '）</li>').join('') + '</ul>';
+    }
+    if (data.lessons?.length) {
+      html += '<ul class="agent-tool-list lessons">' + data.lessons.map((l) =>
+        '<li>经验：' + escapeHtml(l) + '</li>').join('') + '</ul>';
+    }
+    return html;
+  }
+  if (Array.isArray(data.decisions)) {
+    return '<ul class="agent-tool-list">' + data.decisions.map((d) => {
+      const q = config.find((x) => x.id === d.dimension_id);
+      const opt = q?.options?.[d.option_index];
+      return '<li>' + escapeHtml(q?.title || d.dimension_id) + ' → ' + escapeHtml(opt?.label || ('选项 ' + d.option_index)) + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (Array.isArray(data.redflags) && data.redflags.length) {
+    return '<ul class="agent-tool-list red">' + data.redflags.map((r) => {
+      const q = config.find((x) => x.id === r.dimension_id);
+      return '<li>' + escapeHtml(q?.title || r.dimension_id) + '：' + escapeHtml(r.evidence || '') + '</li>';
+    }).join('') + '</ul>';
+  }
+  return '';
+}
+
+function renderReflection(data) {
+  if (!agentReflection) return;
+  agentReflection.hidden = false;
+  agentReflection.innerHTML = '<strong>反思</strong><p>' + escapeHtml(data.summary || '') + '</p>';
 }
 
 async function analyzeWithAI(text, imageDataUrl, docText) {
-  const aiCfg = loadAIConfig();
-  if (!aiCfg.apiKey) {
+  if (!serverAIConfig.hasKey) {
     showAIStatus('请先在「管理员配置」中设置 AI API Key。', 'error');
     return;
   }
 
-  const prompt = buildAIPrompt(text, !!imageDataUrl, docText);
-  showAIStatus('AI 正在分析需求，请稍候…', 'loading');
+  showAIStatus('Agent 正在启动，请稍候…', 'loading');
   if (aiSummary) aiSummary.hidden = true;
   if (aiSubmit) aiSubmit.disabled = true;
-
-  const userContent = [{ type: 'text', text: prompt }];
-  if (imageDataUrl) {
-    userContent.push({ type: 'image_url', image_url: { url: imageDataUrl } });
-  }
+  resetAgentTrace();
 
   try {
-    const url = aiCfg.endpoint.replace(/\/+$/, '') + '/v1/chat/completions';
-    const resp = await fetch(url, {
+    const resp = await fetch('/api/agent/analyze', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + aiCfg.apiKey
-      },
-      body: JSON.stringify({
-        model: aiCfg.model,
-        messages: [
-          { role: 'system', content: '你是一个严格按要求输出 JSON 的分析助手，不要输出任何非 JSON 内容。' },
-          { role: 'user', content: userContent }
-        ],
-        temperature: 0.3,
-        max_tokens: 1500
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, imageDataUrl, docText, dimensions: config })
     });
-
-    if (!resp.ok) {
+    if (!resp.ok || !resp.body) {
       const errText = await resp.text().catch(() => '');
-      throw new Error('API 请求失败 (' + resp.status + '): ' + (errText.slice(0, 200) || resp.statusText));
+      throw new Error('Agent 服务请求失败 (' + resp.status + '): ' + (errText.slice(0, 200) || resp.statusText));
     }
-
-    const data = await resp.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) throw new Error('API 返回内容为空');
-
-    // Extract JSON from response (handle markdown code blocks)
-    let jsonStr = content.trim();
-    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) jsonStr = jsonMatch[1].trim();
-
-    // 容错处理：去掉 JSON 内行注释（// 和 /* */）
-    jsonStr = jsonStr
-      .replace(/\/\/[^\n]*/g, '')        // 移除行内注释 // ...
-      .replace(/\/\*[\s\S]*?\*\//g, '')  // 移除块注释 /* ... */
-      .replace(/,\s*([}\]])/g, '$1');    // 移除尾部多余逗号
-
-    // 如果内容不是标准 JSON，尝试提取第一个 { ... } 块
-    if (!jsonStr.startsWith('{')) {
-      const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (objMatch) jsonStr = objMatch[0];
-    }
-
-    let parsed;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch (e) {
-      throw new Error('AI 返回格式解析失败，请重试。（详情：' + e.message + '）');
-    }
-    applyAIResult(parsed);
+    await consumeAgentStream(resp.body);
   } catch (err) {
+    finishAgentTrace();
     showAIStatus('分析失败: ' + err.message, 'error');
   } finally {
     if (aiSubmit) aiSubmit.disabled = false;
   }
 }
 
-function applyAIResult(result) {
-  const decisions = result?.decisions;
-  if (!Array.isArray(decisions) || !decisions.length) {
-    showAIStatus('AI 返回格式异常，无法自动填充判定。', 'error');
-    return;
-  }
+// 消费 SSE 流：逐事件解析并驱动 Agent 思考过程 UI
+async function consumeAgentStream(body) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const toolCards = new Map();
+  let buffer = '';
 
-  // 第一步：需求有效性关卡。如果 AI 判断不是有效需求，直接拦截，不进入 6 维度判定。
-  if (result?.valid === false) {
-    hideAIStatus();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let sepIndex;
+    while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
+      const rawEvent = buffer.slice(0, sepIndex);
+      buffer = buffer.slice(sepIndex + 2);
+
+      let eventName = 'message';
+      let dataStr = '';
+      for (const line of rawEvent.split('\n')) {
+        if (line.startsWith('event:')) eventName = line.slice(6).trim();
+        else if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+      }
+      if (!dataStr) continue;
+
+      let data;
+      try { data = JSON.parse(dataStr); } catch { continue; }
+
+      handleAgentEvent(eventName, data, toolCards);
+      if (eventName === 'done' || eventName === 'error') return;
+    }
+  }
+}
+
+function handleAgentEvent(eventName, data, toolCards) {
+  switch (eventName) {
+    case 'plan_start':
+      showAIStatus('Agent 正在制定分析计划…', 'loading');
+      break;
+    case 'plan':
+      renderAgentPlan(data);
+      showAIStatus('Agent 正在执行分析计划…', 'loading');
+      break;
+    case 'tool_start': {
+      markStep(data.tool, 'is-running');
+      const card = renderToolCard(data.tool, data.label, data.purpose);
+      if (card) toolCards.set(data.tool, card);
+      break;
+    }
+    case 'tool_result':
+      markStep(data.tool, 'is-done');
+      completeToolCard(toolCards.get(data.tool), data.summary, data.data, false);
+      break;
+    case 'tool_error':
+      markStep(data.tool, 'is-error');
+      completeToolCard(toolCards.get(data.tool), data.message, null, true);
+      break;
+    case 'reflection':
+      renderReflection(data);
+      break;
+    case 'done':
+      finishAgentTrace();
+      hideAIStatus();
+      applyAgentResult(data);
+      break;
+    case 'error':
+      finishAgentTrace();
+      showAIStatus('分析失败: ' + (data.message || '未知错误'), 'error');
+      break;
+  }
+}
+
+// ── Agent 结果应用与反馈采集 ──────────────────────────────────────────────────
+let currentCaseId = null;
+let feedbackSentForCase = null;
+
+function applyAgentResult(result) {
+  // 需求有效性关卡：无效需求直接拦截，不进入人工确认
+  if (result.valid === false) {
+    currentCaseId = null;
     if (aiSummary && aiSummaryContent) {
-      const reason = result?.validity_reason || '需求描述不清晰或不完整，无法判断是否需要 FDE 参与。';
-      aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">AI 初筛结论：当前输入不是一个可执行的 AI 项目需求。</p><p style="margin:0;color:var(--red);font-size:13px;font-weight:600;">' + escapeHtml(reason) + ' 请补充客户场景、目标和预期交付物后再试。</p>';
+      const reason = result.validityReason || '需求描述不清晰或不完整，无法判断是否需要 FDE 参与。';
+      aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">Agent 初筛结论：当前输入不是一个可执行的 AI 项目需求。</p><p style="margin:0;color:var(--red);font-size:13px;font-weight:600;">' + escapeHtml(reason) + ' 请补充客户场景、目标和预期交付物后再试。</p>';
       aiSummary.hidden = false;
     }
     return;
   }
 
-  // AI 只做初筛，不直接写入 answers；用户需要手动确认全部问题
-  const aiScores = [];
-  const aiRedFlags = [];
-  const decisionDetails = [];
-  for (const decision of decisions) {
-    const question = config.find(q => q.id === decision.dimension_id);
-    if (!question) continue;
-    const optIdx = Number(decision.option_index);
-    const option = question.options[optIdx];
-    if (!option) continue;
-    aiScores.push(Number(option.score));
-    if (option.redflag) aiRedFlags.push(question.id);
-    decisionDetails.push({ question, option, reason: decision.reason });
+  const decisions = Array.isArray(result.decisions) ? result.decisions : [];
+  if (!decisions.length) {
+    showAIStatus('Agent 返回格式异常，无法自动填充判定。', 'error');
+    return;
   }
 
-  const total = aiScores.reduce((sum, s) => sum + s, 0);
-  const hasRedFlag = aiRedFlags.length > 0;
-  const aiVerdict = hasRedFlag || total <= -3 ? 'no' : total >= 6 ? 'can' : 'maybe';
+  currentCaseId = result.caseId || null;
+  feedbackSentForCase = null;
 
-  // 根据计算出的 verdict 生成与结论严格一致的摘要，避免 AI 摘要与判定结果矛盾
-  const redFlagNames = decisionDetails.filter(d => d.option.redflag).map(d => d.question.title);
-  let summaryText;
-  if (aiVerdict === 'can') {
-    summaryText = 'AI 初筛通过：需求场景清晰、边界可控，属于 FDE 能力范围。请继续手动确认以下 6 个维度。';
-  } else if (aiVerdict === 'maybe') {
-    summaryText = 'AI 初筛结论：需求可以参与，但存在不确定性或需外部支持。请结合客户实际情况手动确认以下 6 个维度，最终能否生成交付页由手动确认结果决定。';
-  } else {
-    summaryText = 'AI 初筛结论：需求触碰到 ' + (redFlagNames.length ? redFlagNames.join('、') : '红线场景') + '，不适合由 FDE 小队独立承接。建议转交或重新收敛需求。';
-  }
-
-  // 只有 AI 初筛不是"不能独立承接"时才展开问题面板供用户确认
-  if (aiVerdict === 'no') {
-    hideAIStatus();
+  // 初筛为"不能独立承接"：直接拦截，不展开人工确认区
+  if (result.verdict === 'no') {
+    if (decisionStage) decisionStage.hidden = true;
     if (aiSummary && aiSummaryContent) {
-      const reasonText = hasRedFlag
-        ? 'AI 初筛发现红线风险，建议重新收敛需求或转交其他团队评估。'
-        : 'AI 初筛认为该需求暂不满足承接条件，建议重新收敛需求后再试。';
-      aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(summaryText) + '</p><p style="margin:0;color:var(--red);font-size:13px;font-weight:600;">' + reasonText + '</p>';
+      const reasonText = result.hasRedFlag
+        ? 'Agent 初筛发现红线风险，建议重新收敛需求或转交其他团队评估。'
+        : 'Agent 初筛认为该需求暂不满足承接条件，建议重新收敛需求后再试。';
+      aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(result.summary || '') + '</p><p style="margin:0;color:var(--red);font-size:13px;font-weight:600;">' + reasonText + '</p>';
       aiSummary.hidden = false;
     }
     return;
   }
 
-  // AI 初筛通过（包含"可以做"和"需要外部支持"），展开问题面板
+  // 初筛通过（can / maybe）：展开人工确认区，AI 建议仅作参考，最终由人工确认
   if (decisionStage) decisionStage.hidden = false;
   decisionStage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   restoreSelectedButtons();
   renderResult();
 
-  hideAIStatus();
   if (aiSummary && aiSummaryContent) {
-    const items = decisionDetails.map(d =>
-      '<li><strong>' + escapeHtml(d.question.title) + '</strong> → ' + escapeHtml(d.option.label) + '（' + escapeHtml(d.reason || '') + '）</li>'
+    const items = decisions.map(d =>
+      '<li><strong>' + escapeHtml(d.dimension_title || d.dimension_id) + '</strong> → ' + escapeHtml(d.option_label || '') + '（' + escapeHtml(d.reason || '') + '）</li>'
     );
-    const confirmHint = '<p style="margin:0 0 10px;color:var(--brand);font-size:13px;font-weight:600;">请手动确认以下 6 个问题。全部确认完成后，只有判定为"可以做"才会出现生成按钮。</p>';
-    aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(summaryText) + '</p>' + confirmHint + '<ul>' + items.join('') + '</ul>';
+    const confirmHint = '<p style="margin:0 0 10px;color:var(--brand);font-size:13px;font-weight:600;">请手动确认以下 ' + config.length + ' 个问题。全部确认完成后，只有判定为"可以做"才会出现生成按钮。</p>';
+    aiSummaryContent.innerHTML = '<p style="margin:0 0 10px;color:var(--muted);font-size:14px;">' + escapeHtml(result.summary || '') + '</p>' + confirmHint + '<ul>' + items.join('') + '</ul>';
     aiSummary.hidden = false;
   }
 }
+
+// 人工确认完成全部维度后，将「AI 建议 vs 人工确认」反馈给服务端，驱动 Agent 进化
+async function maybeSubmitFeedback() {
+  if (!currentCaseId || feedbackSentForCase === currentCaseId) return;
+  if (answers.size !== config.length) return;
+  feedbackSentForCase = currentCaseId;
+
+  const confirmations = config.map((q) => {
+    const answer = answers.get(q.id);
+    return { dimension_id: q.id, option_index: answer?.optionIndex ?? 0 };
+  });
+
+  try {
+    const resp = await fetch('/api/agent/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caseId: currentCaseId, confirmations })
+    });
+    const data = await resp.json();
+    if (!data?.ok) return;
+    if (data.lessons?.length) {
+      showToast('Agent 已沉淀 ' + data.lessons.length + ' 条新经验，判定持续进化', 'success');
+    } else if (data.corrections === 0) {
+      showToast('AI 建议全部被采纳，已计入进化指标', 'info');
+    }
+    if (data.stats) renderEvolutionStats(data.stats);
+  } catch {
+    // 反馈失败不影响主流程
+  }
+}
+
+// ── Agent 进化看板 ────────────────────────────────────────────────────────────
+const evoCases = document.querySelector('[data-evo-cases]');
+const evoRate = document.querySelector('[data-evo-rate]');
+const evoLessons = document.querySelector('[data-evo-lessons]');
+const evoTrend = document.querySelector('[data-evo-trend]');
+
+function renderEvolutionStats(stats) {
+  if (!stats) return;
+  if (evoCases) evoCases.textContent = String(stats.totalCases ?? 0);
+  if (evoRate) evoRate.textContent = stats.acceptanceRate === null || stats.acceptanceRate === undefined ? '—' : stats.acceptanceRate + '%';
+  if (evoLessons) evoLessons.textContent = String(stats.lessonCount ?? 0);
+  if (evoTrend) {
+    const weekly = (stats.weekly || []).filter((w) => w.rate !== null);
+    if (weekly.length) {
+      evoTrend.hidden = false;
+      evoTrend.innerHTML = '<span class="evo-trend-label">采纳率趋势</span>' + weekly.map((w) =>
+        '<span class="evo-trend-item"><em>' + escapeHtml(w.week) + '</em><strong>' + w.rate + '%</strong></span>'
+      ).join('');
+    } else {
+      evoTrend.hidden = true;
+      evoTrend.innerHTML = '';
+    }
+  }
+}
+
+async function loadEvolutionStats() {
+  try {
+    const resp = await fetch('/api/agent/stats');
+    if (!resp.ok) return;
+    renderEvolutionStats(await resp.json());
+  } catch {
+    // 服务端不可达时保持默认展示
+  }
+}
+loadEvolutionStats();
 
 aiSubmit?.addEventListener('click', () => {
   const text = (aiInput?.value || '').trim();
