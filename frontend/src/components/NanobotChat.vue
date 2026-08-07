@@ -78,7 +78,7 @@
             <div class="nanobot-msg-bubble">
               <!-- Web Search Citation Sources -->
               <div v-if="msg.searchSources && msg.searchSources.length" class="nanobot-sources-block">
-                <div class="nanobot-sources-title">🌐 联网参考来源 ({{ msg.searchSources.length }})</div>
+                <div class="nanobot-sources-title">联网参考来源 ({{ msg.searchSources.length }})</div>
                 <div class="nanobot-sources-links">
                   <a
                     v-for="(source, sIdx) in msg.searchSources"
@@ -100,7 +100,6 @@
           <div v-if="isSearching" class="nanobot-msg is-bot">
             <span class="nanobot-msg-avatar">AI</span>
             <div class="nanobot-msg-bubble nanobot-search-bubble">
-              <span class="nanobot-search-pulse">🌐</span>
               <span class="nanobot-search-text">正在联网检索实时信息...</span>
             </div>
           </div>
@@ -111,7 +110,7 @@
             <div class="nanobot-msg-bubble">
               <!-- Active Search Sources during stream -->
               <div v-if="currentSearchSources && currentSearchSources.length" class="nanobot-sources-block">
-                <div class="nanobot-sources-title">🌐 联网参考来源 ({{ currentSearchSources.length }})</div>
+                <div class="nanobot-sources-title">联网参考来源 ({{ currentSearchSources.length }})</div>
                 <div class="nanobot-sources-links">
                   <a
                     v-for="(source, sIdx) in currentSearchSources"
@@ -164,6 +163,12 @@
 
 <script setup>
 import { ref, nextTick, watch } from 'vue'
+import { marked } from 'marked'
+
+marked.setOptions({
+  breaks: true,
+  gfm: true
+})
 
 const isOpen = ref(false)
 const isWebSearchEnabled = ref(false)
@@ -194,21 +199,13 @@ watch(isOpen, (val) => {
   }
 })
 
-const escapeHtml = (text) => {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
 const formatContent = (text) => {
   if (!text) return ''
-  let html = escapeHtml(text)
-  // Convert **bold** to <strong>
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  // Convert newlines to <br>
-  html = html.replace(/\n/g, '<br>')
-  return html
+  try {
+    return marked.parse(text)
+  } catch (e) {
+    return text
+  }
 }
 
 const scrollToBottom = () => {

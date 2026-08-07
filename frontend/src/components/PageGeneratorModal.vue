@@ -2,7 +2,7 @@
   <div v-if="show" class="modal-backdrop" @click.self="$emit('close')">
     <div class="modal-content page-modal">
       <div class="modal-header">
-        <h3>📄 AI 交付项目展示页生成</h3>
+        <h3>AI 交付项目展示页生成</h3>
         <button class="modal-close" @click="$emit('close')">✕</button>
       </div>
 
@@ -14,10 +14,10 @@
       <div v-else-if="htmlContent" class="generated-state">
         <div class="preview-actions">
           <button class="btn primary" @click="downloadHtml">
-            ⬇️ 下载独立 HTML 文件
+            下载独立 HTML 文件
           </button>
           <button class="btn secondary" @click="copyHtml">
-            📋 复制代码
+            复制代码
           </button>
         </div>
 

@@ -1,0 +1,10 @@
+[run]
+branch = True
+source = app
+
+[report]
+include_namespace_packages = True
+show_missing = True
+skip_empty = True
+precision = 1
+fail_under = 90

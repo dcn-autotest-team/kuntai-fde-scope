@@ -9,7 +9,7 @@
       <div class="scope-grid">
         <div class="card scope-card do">
           <div class="scope-header">
-            <h3>✅ FDE 核心定位与擅长做（Can Do）</h3>
+            <h3>FDE 核心定位与擅长做（Can Do）</h3>
           </div>
           <ul class="scope-list">
             <li><strong>AI 场景诊断工作坊：</strong>业务流程访谈、场景清单、ROI 假设与 MVP 路线图</li>
@@ -22,7 +22,7 @@
 
         <div class="card scope-card dont">
           <div class="scope-header">
-            <h3>⛔ 6 大明确红线与不能独立承接（Redlines）</h3>
+            <h3>6 大明确红线与不能独立承接（Redlines）</h3>
           </div>
           <ul class="scope-list">
             <li><strong>无人审核自动决策：</strong>涉及医疗诊断、无人审核金融放款、风险处置严禁独立闭环</li>
@@ -46,11 +46,11 @@
 }
 
 .scope-card.do {
-  border-top: 4px solid #16a34a;
+  border-top: 4px solid #000000;
 }
 
 .scope-card.dont {
-  border-top: 4px solid #dc2626;
+  border-top: 4px solid var(--color-primary);
 }
 
 .scope-header h3 {

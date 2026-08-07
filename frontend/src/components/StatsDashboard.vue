@@ -65,11 +65,19 @@ onMounted(() => {
 .stat-box {
   text-align: center;
   padding: 32px 20px;
+  transition: var(--transition);
+}
+
+.stat-box:hover {
+  transform: translateY(-4px);
 }
 
 .stat-box.highlight {
-  background: linear-gradient(135deg, #0b132b 0%, #1c2541 100%);
+  background: linear-gradient(135deg, #0a0a0c 0%, #1c1c22 100%);
   color: #fff;
+  border: 1px solid #27272a;
+  border-top: 3px solid var(--color-primary);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
 .stat-box.highlight .stat-num {
@@ -77,7 +85,7 @@ onMounted(() => {
 }
 
 .stat-box.highlight .stat-label {
-  color: #cbd5e1;
+  color: #9ca3af;
 }
 
 .stat-num {

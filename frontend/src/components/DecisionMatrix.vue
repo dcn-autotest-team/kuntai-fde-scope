@@ -34,7 +34,7 @@
                 <span class="opt-text">{{ opt.label }}</span>
                 <span class="opt-score" :class="{ negative: opt.score < 0 }">
                   {{ opt.score > 0 ? '+' + opt.score : opt.score }}分
-                  <template v-if="opt.redflag">⚠️ 红线</template>
+                  <template v-if="opt.redflag">[红线]</template>
                 </span>
               </label>
             </div>
@@ -60,14 +60,14 @@
               :disabled="submittingFeedback || !currentCaseId"
               @click="submitFeedback"
             >
-              {{ submittingFeedback ? '沉淀中...' : '💬 确认选择并沉淀进化经验' }}
+              {{ submittingFeedback ? '沉淀中...' : '确认选择并沉淀进化经验' }}
             </button>
             <span v-if="!currentCaseId" class="hint-text">（需先在 AI 智能判定中发起评测）</span>
           </div>
         </div>
 
         <div v-if="feedbackSuccessMsg" class="feedback-success">
-          ✅ {{ feedbackSuccessMsg }}
+          {{ feedbackSuccessMsg }}
         </div>
       </div>
     </div>
@@ -290,38 +290,42 @@ const submitFeedback = async () => {
 }
 
 .option-label:hover {
-  border-color: #cbd5e1;
+  border-color: #9ca3af;
+  transform: translateX(2px);
 }
 
 .option-label.selected {
   border-color: var(--color-primary);
   background: var(--color-primary-light);
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(196, 18, 48, 0.12);
 }
 
 .option-label.redflag.selected {
-  border-color: #dc2626;
-  background: #fee2e2;
+  border-color: var(--color-primary);
+  background: #fef2f2;
 }
 
 .opt-score {
   font-weight: 700;
-  color: #16a34a;
+  color: #111827;
 }
 
 .opt-score.negative {
-  color: #dc2626;
+  color: var(--color-primary);
 }
 
 .summary-bar {
   margin-top: 32px;
   padding: 24px;
   border-radius: var(--radius-md);
-  background: #0f172a;
+  background: #0a0a0c;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-top: 2px solid var(--color-primary);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
 }
 
 .summary-info {
@@ -331,8 +335,9 @@ const submitFeedback = async () => {
 }
 
 .score-display strong {
-  font-size: 24px;
+  font-size: 26px;
   color: var(--color-accent);
+  margin-left: 6px;
 }
 
 .feedback-action {
@@ -343,16 +348,19 @@ const submitFeedback = async () => {
 
 .hint-text {
   font-size: 12px;
-  color: #94a3b8;
+  color: #9ca3af;
 }
 
 .feedback-success {
   margin-top: 16px;
   padding: 12px;
-  background: #dcfce7;
-  color: #15803d;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid var(--color-primary);
   border-radius: var(--radius-sm);
   font-weight: 600;
   text-align: center;
+  box-shadow: 0 4px 16px rgba(196, 18, 48, 0.2);
+  animation: fadeInUp 0.25s ease;
 }
 </style>

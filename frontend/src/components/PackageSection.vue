@@ -68,6 +68,13 @@ const packages = [
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: var(--transition);
+}
+
+.package-card:hover {
+  transform: translateY(-4px);
+  border-color: #d1d5db;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }
 
 .pkg-header {

@@ -18,10 +18,10 @@
           <div class="ai-tools-bar">
             <div class="file-inputs">
               <label class="file-btn">
-                📎 文本/文档 (.txt/.md)
+                文本/文档 (.txt/.md)
                 <input type="file" accept=".txt,.md" hidden @change="handleDocUpload" />
               </label>
-              <span v-if="docFileName" class="file-tag">📄 {{ docFileName }}</span>
+              <span v-if="docFileName" class="file-tag">{{ docFileName }}</span>
             </div>
 
             <button
@@ -30,7 +30,7 @@
               @click="startAnalysis"
             >
               <span v-if="analyzing" class="spinner"></span>
-              {{ analyzing ? 'Nanobot 分析中...' : '🚀 开始智能判定' }}
+              {{ analyzing ? 'Nanobot 分析中...' : '开始智能判定' }}
             </button>
           </div>
         </div>
@@ -38,7 +38,7 @@
         <!-- SSE Pipeline Trace -->
         <div v-if="traceLogs.length > 0" class="trace-container">
           <div class="trace-header">
-            <h4>🧠 Nanobot Agent 实时执行轨迹</h4>
+            <h4>Nanobot Agent 实时执行轨迹</h4>
             <span class="status-tag" :class="traceStatus">{{ traceStatusText }}</span>
           </div>
 
@@ -50,12 +50,7 @@
               :class="log.type"
             >
               <div class="trace-icon">
-                <span v-if="log.type === 'plan'">📝</span>
-                <span v-else-if="log.type === 'tool_start'">⚙️</span>
-                <span v-else-if="log.type === 'tool_result'">✅</span>
-                <span v-else-if="log.type === 'reflection'">💡</span>
-                <span v-else-if="log.type === 'done'">🎉</span>
-                <span v-else>ℹ️</span>
+                <span class="trace-bullet"></span>
               </div>
               <div class="trace-body">
                 <div class="trace-title">{{ log.title }}</div>
@@ -75,10 +70,10 @@
 
           <div class="result-actions">
             <button class="btn primary" @click="$emit('sync-decision', finalResult)">
-              📋 将 AI 建议同步至 6 维矩阵
+              将 AI 建议同步至 6 维矩阵
             </button>
             <button class="btn outline-dark" @click="$emit('generate-page', finalResult)">
-              📄 生成交付项目 HTML 页
+              生成交付项目 HTML 页
             </button>
           </div>
         </div>
@@ -267,7 +262,7 @@ const handleSseEvent = (event, data) => {
   } else if (event === 'reflection') {
     traceLogs.value.push({
       type: 'reflection',
-      title: '💡 架构师反思',
+      title: '架构师反思',
       detail: data.summary
     })
   } else if (event === 'done') {
@@ -356,10 +351,12 @@ const handleSseEvent = (event, data) => {
 /* Trace styles */
 .trace-container {
   margin-top: 28px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: #0a0a0c;
+  color: #f3f4f6;
   border-radius: var(--radius-md);
   padding: 20px;
+  border-top: 2px solid var(--color-primary);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
 }
 
 .trace-header {
@@ -367,36 +364,41 @@ const handleSseEvent = (event, data) => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid #27272a;
   padding-bottom: 12px;
 }
 
 .status-tag {
   font-size: 12px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 4px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .status-tag.running {
-  background: #0284c7;
-  color: #fff;
+  background: #18181b;
+  color: var(--color-accent);
+  border: 1px solid var(--color-primary);
+  animation: pulseRedGlow 2s infinite;
 }
 
 .status-tag.completed {
-  background: #16a34a;
-  color: #fff;
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #4b5563;
 }
 
 .status-tag.error {
-  background: #dc2626;
-  color: #fff;
+  background: #fef2f2;
+  color: var(--color-primary);
+  border: 1px solid #fca5a5;
 }
 
 .trace-timeline {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   max-height: 280px;
   overflow-y: auto;
 }
@@ -404,19 +406,38 @@ const handleSseEvent = (event, data) => {
 .trace-item {
   display: flex;
   gap: 12px;
-  background: #1e293b;
+  align-items: flex-start;
+  background: #141418;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   font-size: 13px;
+  border-left: 2px solid #27272a;
+  transition: var(--transition);
+}
+
+.trace-item:hover {
+  transform: translateX(4px);
+  border-left-color: var(--color-primary);
+  background: #1c1c22;
+}
+
+.trace-bullet {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 6px var(--color-accent);
+  margin-top: 6px;
 }
 
 .trace-title {
   font-weight: 600;
-  color: #f8fafc;
+  color: #f9fafb;
 }
 
 .trace-detail {
-  color: #94a3b8;
+  color: #9ca3af;
   margin-top: 2px;
 }
 
@@ -426,21 +447,41 @@ const handleSseEvent = (event, data) => {
   padding: 24px;
   border-radius: var(--radius-md);
   border: 2px solid transparent;
+  animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .result-box.can {
-  background: #f0fdf4;
-  border-color: #22c55e;
+  background: #0a0a0c;
+  border-color: var(--color-primary);
+  color: #ffffff;
+  box-shadow: 0 12px 32px rgba(196, 18, 48, 0.2);
+}
+
+.result-box.can .summary-text {
+  color: #d1d5db;
+}
+
+.result-box.can .score-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .result-box.maybe {
-  background: #fefce8;
-  border-color: #eab308;
+  background: #f8fafc;
+  border-color: #9ca3af;
+  color: #0f172a;
 }
 
 .result-box.no {
   background: #fef2f2;
-  border-color: #ef4444;
+  border-color: var(--color-primary);
+  color: #0f172a;
 }
 
 .result-header {
@@ -453,7 +494,7 @@ const handleSseEvent = (event, data) => {
 .score-badge {
   font-weight: 700;
   font-size: 14px;
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.06);
   padding: 4px 12px;
   border-radius: 999px;
 }
@@ -471,13 +512,14 @@ const handleSseEvent = (event, data) => {
 }
 
 .btn.outline-dark {
-  border: 1px solid var(--color-text-main);
-  color: var(--color-text-main);
+  border: 1px solid var(--color-border);
+  color: inherit;
   background: transparent;
 }
 
 .btn.outline-dark:hover {
-  background: rgba(0,0,0,0.05);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-primary);
 }
 
 .spinner {

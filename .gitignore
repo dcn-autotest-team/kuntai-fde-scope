@@ -4,6 +4,10 @@ dist/
 .venv/
 __pycache__/
 *.pyc
+.coverage
+coverage.json
+htmlcov/
+coverage/
 
 # Local Data & SQLite DB
 *.db

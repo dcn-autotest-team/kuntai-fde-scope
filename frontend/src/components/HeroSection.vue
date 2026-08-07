@@ -9,8 +9,8 @@
           系统嵌入 <strong>Nanobot 微 Agent 引擎</strong>，支持自主规划、记忆检索与 SSE 全流程判定追踪，助您精准判定需求边界。
         </p>
         <div class="hero-actions">
-          <a class="btn primary" href="#ai-analyzer">🤖 智能 Agent 判定</a>
-          <a class="btn outline" href="#decision">📊 6维矩阵人工复核</a>
+          <a class="btn primary" href="#ai-analyzer">智能 Agent 判定</a>
+          <a class="btn outline" href="#decision">6维矩阵人工复核</a>
         </div>
       </div>
       <div class="hero-stats">

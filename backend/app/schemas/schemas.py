@@ -44,6 +44,11 @@ class UpdateLessonRequest(BaseModel):
     context: Optional[str] = None
     dimensionId: Optional[str] = None
 
+class CreateLessonRequest(BaseModel):
+    lesson: str
+    context: Optional[str] = None
+    dimensionId: Optional[str] = None
+
 class GeneratePageRequest(BaseModel):
     userText: Optional[str] = ""
     verdict: Optional[str] = None
