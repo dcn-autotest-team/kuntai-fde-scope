@@ -1,2 +1,20 @@
+# Dependencies & Build Output
 node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.coverage
+coverage.json
+htmlcov/
+coverage/
+
+# Local Data & SQLite DB
+*.db
 server/data/
+workspace/
+
+# Environment Variables & IDE
+.env
+.vscode/
+.idea/
